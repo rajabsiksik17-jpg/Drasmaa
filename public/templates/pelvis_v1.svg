@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 700" width="1000" height="700">
+  <rect width="1000" height="700" fill="#ffffff"/>
+  <g fill="none" stroke="#1a1a1a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Uterus (fundus + body) -->
+    <path d="M500 200 C 410 200, 380 250, 385 320 C 390 400, 440 450, 470 470 L 470 520 L 530 520 L 530 470 C 560 450, 610 400, 615 320 C 620 250, 590 200, 500 200 Z"/>
+    <!-- Endometrial cavity -->
+    <path d="M500 250 C 460 255, 440 290, 450 330 C 460 370, 485 400, 500 430 C 515 400, 540 370, 550 330 C 560 290, 540 255, 500 250 Z" stroke-width="2" stroke-dasharray="6 5"/>
+    <!-- Cervix + vagina -->
+    <path d="M470 520 C 465 560, 470 600, 455 650"/>
+    <path d="M530 520 C 535 560, 530 600, 545 650"/>
+    <path d="M480 520 L 520 520" stroke-width="2"/>
+    <!-- Right tube (patient right = image left) -->
+    <path d="M395 245 C 330 215, 260 210, 205 240 C 180 255, 165 280, 170 300"/>
+    <path d="M170 300 C 150 305, 140 325, 150 340 M170 300 C 175 320, 165 340, 175 350 M170 300 C 190 312, 195 335, 190 350"/>
+    <!-- Left tube -->
+    <path d="M605 245 C 670 215, 740 210, 795 240 C 820 255, 835 280, 830 300"/>
+    <path d="M830 300 C 850 305, 860 325, 850 340 M830 300 C 825 320, 835 340, 825 350 M830 300 C 810 312, 805 335, 810 350"/>
+    <!-- Ovaries -->
+    <ellipse cx="265" cy="330" rx="62" ry="40" transform="rotate(-12 265 330)"/>
+    <ellipse cx="735" cy="330" rx="62" ry="40" transform="rotate(12 735 330)"/>
+    <!-- Ovarian ligaments -->
+    <path d="M325 322 C 350 318, 370 305, 388 290" stroke-width="2"/>
+    <path d="M675 322 C 650 318, 630 305, 612 290" stroke-width="2"/>
+  </g>
+  <g font-family="Arial, Helvetica, sans-serif" font-size="26" fill="#555555" text-anchor="middle">
+    <text x="265" y="410">R. Ovary</text>
+    <text x="735" y="410">L. Ovary</text>
+    <text x="500" y="185">Uterus</text>
+    <text x="500" y="690">Cervix / Vagina</text>
+    <text x="70" y="60" font-size="44" font-weight="700" fill="#1a1a1a">R</text>
+    <text x="930" y="60" font-size="44" font-weight="700" fill="#1a1a1a">L</text>
+  </g>
+</svg>

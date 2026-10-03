@@ -1,0 +1,412 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-cairo), ui-sans-serif, system-ui, sans-serif;
+  /* One typeface everywhere: "mono" places (IDs, codes) use Cairo with tabular figures. */
+  --font-mono: var(--font-cairo), ui-monospace, monospace;
+  --font-heading: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-allergy: var(--allergy);
+  --color-allergy-bg: var(--allergy-bg);
+  --color-status-scheduled: var(--status-scheduled);
+  --color-status-waiting: var(--status-waiting);
+  --color-status-with-doctor: var(--status-with-doctor);
+  --color-status-completed: var(--status-completed);
+  --color-status-cancelled: var(--status-cancelled);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+  --animate-pulse-ring: pulse-ring 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Calm clinical palette: deep teal primary, cool slate neutrals. */
+:root {
+  --background: oklch(0.985 0.003 230);
+  --foreground: oklch(0.21 0.02 250);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.21 0.02 250);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.21 0.02 250);
+  --primary: oklch(0.5 0.09 205);
+  --primary-foreground: oklch(0.99 0.005 200);
+  --secondary: oklch(0.96 0.008 220);
+  --secondary-foreground: oklch(0.28 0.03 240);
+  --muted: oklch(0.965 0.006 230);
+  --muted-foreground: oklch(0.52 0.02 250);
+  --accent: oklch(0.95 0.02 205);
+  --accent-foreground: oklch(0.33 0.07 210);
+  --destructive: oklch(0.56 0.21 25);
+  --border: oklch(0.915 0.008 240);
+  --input: oklch(0.89 0.01 240);
+  --ring: oklch(0.6 0.09 205);
+  --success: oklch(0.58 0.13 155);
+  --success-foreground: oklch(0.99 0 0);
+  --warning: oklch(0.75 0.15 75);
+  --warning-foreground: oklch(0.25 0.05 70);
+  --info: oklch(0.6 0.12 245);
+  --allergy: oklch(0.5 0.22 27);
+  --allergy-bg: oklch(0.96 0.03 25);
+  --status-scheduled: oklch(0.6 0.03 250);
+  --status-waiting: oklch(0.72 0.15 70);
+  --status-with-doctor: oklch(0.58 0.13 250);
+  --status-completed: oklch(0.6 0.13 155);
+  --status-cancelled: oklch(0.6 0.15 25);
+  --chart-1: oklch(0.5 0.09 205);
+  --chart-2: oklch(0.72 0.15 70);
+  --chart-3: oklch(0.58 0.13 250);
+  --chart-4: oklch(0.6 0.13 155);
+  --chart-5: oklch(0.6 0.15 25);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.99 0.003 230);
+  --sidebar-foreground: oklch(0.3 0.02 250);
+  --sidebar-primary: oklch(0.5 0.09 205);
+  --sidebar-primary-foreground: oklch(0.99 0 0);
+  --sidebar-accent: oklch(0.95 0.015 210);
+  --sidebar-accent-foreground: oklch(0.3 0.06 210);
+  --sidebar-border: oklch(0.92 0.008 240);
+  --sidebar-ring: oklch(0.6 0.09 205);
+
+  /* Paper forms always stay paper-white with black ink (also in dark mode). */
+  --paper: #ffffff;
+  --paper-ink: #111111;
+  --paper-line: #1f1f1f;
+  --paper-muted: #6b6b6b;
+  --paper-fill: #f3f6f8;
+  --paper-focus: #e6f3f6;
+  --paper-imported: #fff8e1;
+  --shadow-paper: 0 1px 2px rgb(15 23 42 / 0.06), 0 8px 24px -12px rgb(15 23 42 / 0.18);
+}
+
+.dark {
+  --background: oklch(0.17 0.012 250);
+  --foreground: oklch(0.95 0.005 240);
+  --card: oklch(0.21 0.014 250);
+  --card-foreground: oklch(0.95 0.005 240);
+  --popover: oklch(0.22 0.014 250);
+  --popover-foreground: oklch(0.95 0.005 240);
+  --primary: oklch(0.7 0.1 200);
+  --primary-foreground: oklch(0.18 0.02 230);
+  --secondary: oklch(0.27 0.015 250);
+  --secondary-foreground: oklch(0.93 0.005 240);
+  --muted: oklch(0.26 0.014 250);
+  --muted-foreground: oklch(0.7 0.015 250);
+  --accent: oklch(0.29 0.03 210);
+  --accent-foreground: oklch(0.9 0.04 200);
+  --destructive: oklch(0.66 0.19 24);
+  --border: oklch(1 0 0 / 9%);
+  --input: oklch(1 0 0 / 14%);
+  --ring: oklch(0.65 0.09 205);
+  --success: oklch(0.68 0.13 155);
+  --warning: oklch(0.78 0.14 75);
+  --allergy: oklch(0.72 0.18 25);
+  --allergy-bg: oklch(0.3 0.08 25);
+  --sidebar: oklch(0.19 0.013 250);
+  --sidebar-foreground: oklch(0.9 0.005 240);
+  --sidebar-primary: oklch(0.7 0.1 200);
+  --sidebar-primary-foreground: oklch(0.18 0.02 230);
+  --sidebar-accent: oklch(0.27 0.02 220);
+  --sidebar-accent-foreground: oklch(0.95 0.01 200);
+  --sidebar-border: oklch(1 0 0 / 8%);
+  --sidebar-ring: oklch(0.65 0.09 205);
+  --shadow-paper: 0 1px 2px rgb(0 0 0 / 0.4), 0 12px 32px -12px rgb(0 0 0 / 0.6);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-variant-numeric: tabular-nums;
+  }
+  [data-density="compact"] {
+    --density-gap: 0.5rem;
+  }
+}
+
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 color-mix(in oklch, var(--primary) 45%, transparent); }
+  70% { box-shadow: 0 0 0 8px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+@keyframes flash-update {
+  from { background-color: color-mix(in oklch, var(--primary) 18%, transparent); }
+  to { background-color: transparent; }
+}
+.flash-update {
+  animation: flash-update 1.4s ease-out;
+}
+
+/* Thin, unobtrusive scrollbars for controlled horizontal scroll areas. */
+.scroll-x {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* =====================================================================
+   PAPER FORMS — digital reproductions of the clinic's paper charts.
+   ===================================================================== */
+@layer components {
+.paper {
+  background: var(--paper);
+  color: var(--paper-ink);
+  box-shadow: var(--shadow-paper);
+  border-radius: 2px;
+  font-family: var(--font-cairo), Arial, sans-serif;
+  color-scheme: light;
+}
+.paper-serif {
+  font-family: var(--font-cairo), Arial, sans-serif;
+}
+.paper table.paper-grid {
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+.paper .paper-grid td,
+.paper .paper-grid th {
+  border: 1px solid var(--paper-line);
+  padding: 0;
+  font-weight: normal;
+  vertical-align: middle;
+}
+.paper .paper-box {
+  border: 1px solid var(--paper-line);
+}
+.paper .paper-label {
+  color: var(--paper-ink);
+  white-space: nowrap;
+}
+.paper .paper-heading {
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+/* Inputs blend into the paper: transparent, ink-coloured, dotted line. */
+.paper-input {
+  width: 100%;
+  min-width: 0;
+  background: transparent;
+  color: var(--paper-ink);
+  border: 0;
+  outline: none;
+  font: inherit;
+  padding: 1px 3px;
+  border-radius: 2px;
+  transition: background-color 120ms ease, box-shadow 120ms ease;
+}
+.paper-input::placeholder {
+  color: #b3b3b3;
+}
+.paper-input.paper-line {
+  border-bottom: 1px dotted #6b6b6b;
+}
+.paper-input:hover:not(:disabled) {
+  background: var(--paper-fill);
+}
+.paper-input:focus-visible,
+.paper-input:focus {
+  background: var(--paper-focus);
+  box-shadow: inset 0 -2px 0 0 #2a8a9b;
+}
+.paper-input:disabled,
+.paper-input[readonly] {
+  cursor: default;
+  background: transparent;
+}
+.paper-input[data-imported="true"] {
+  background: var(--paper-imported);
+}
+.paper-input[data-saved="true"] {
+  animation: flash-update 1.2s ease-out;
+}
+.paper-input[data-conflict="true"] {
+  box-shadow: inset 0 0 0 2px #d97706;
+}
+textarea.paper-input {
+  resize: vertical;
+  line-height: 1.5;
+  field-sizing: content; /* auto-grow where supported; rows= is the fallback */
+  min-height: 2.2em;
+}
+.paper-cell-input {
+  width: 100%;
+  height: 100%;
+  min-height: 22px;
+  text-align: center;
+  padding: 0 1px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.paper-check {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid var(--paper-line);
+  border-radius: 2px;
+  display: inline-grid;
+  place-content: center;
+  background: #fff;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.paper-check[type="radio"] {
+  border-radius: 999px;
+}
+.paper-check::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  transform: scale(0);
+  transition: transform 100ms ease-in-out;
+  background: var(--paper-ink);
+  border-radius: 1px;
+}
+.paper-check[type="radio"]::before {
+  border-radius: 999px;
+}
+.paper-check:checked::before {
+  transform: scale(1);
+}
+.paper-check:focus-visible {
+  outline: 2px solid #2a8a9b;
+  outline-offset: 2px;
+}
+.paper-check:disabled {
+  cursor: default;
+}
+.paper-vertical-title {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  white-space: nowrap;
+}
+} /* end @layer components (utilities can override paper styles) */
+
+/* =====================================================================
+   PRINT — A4, ink-only, no application chrome.
+   ===================================================================== */
+@page {
+  size: A4 portrait;
+  margin: 10mm;
+}
+@page landscape {
+  size: A4 landscape;
+  margin: 8mm;
+}
+.print-landscape {
+  page: landscape;
+}
+
+@media print {
+  html,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  .no-print,
+  [data-sonner-toaster] {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  .paper {
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+  .paper-input {
+    background: transparent !important;
+    box-shadow: none !important;
+    animation: none !important;
+  }
+  .paper-input::placeholder {
+    color: transparent !important;
+  }
+  textarea.paper-input {
+    resize: none;
+    overflow: hidden;
+  }
+  .scroll-x {
+    overflow: visible !important;
+  }
+  .print-break-before {
+    break-before: page;
+  }
+  .print-avoid-break {
+    break-inside: avoid;
+  }
+}
+.print-only {
+  display: none;
+}
+
+/* Compact density (user preference): tighter app tables and page padding.
+   Paper forms are excluded so the clinical layout never changes. */
+[data-density="compact"] main table:not(.paper-grid) :is(td, th) {
+  padding-top: 0.3rem;
+  padding-bottom: 0.3rem;
+}
+[data-density="compact"] main {
+  padding-top: 0.75rem;
+}
