@@ -20,7 +20,7 @@ const createSchema = z.object({
 })
 
 function revalidateQueue(patientId?: string) {
-  revalidatePath("/today")
+  revalidatePath("/appointments")
   revalidatePath("/dashboard")
   if (patientId) revalidatePath(`/patients/${patientId}`, "layout")
 }
@@ -31,7 +31,7 @@ function revalidateQueue(patientId?: string) {
  * (registration on the first visit + the service) and queues the patient
  * according to the payment workflow. Calling it twice returns the same visit.
  */
-export async function createEncounter(input: z.input<typeof createSchema>): Promise<ActionResult<{ id: string; invoiceId: string | null }>> {
+export async function createEncounter(input: z.input<typeof createSchema>): Promise<ActionResult<{ id: string; invoiceId: string | null; arrivedAt: string | null }>> {
   const auth = await authorize(P.encountersCreate)
   if (auth.error) return auth.error
   const parsed = createSchema.safeParse(input)
@@ -55,8 +55,9 @@ export async function createEncounter(input: z.input<typeof createSchema>): Prom
     const { data: inv } = await supabase.from("invoices").select("id").eq("encounter_id", id).neq("status", "void").maybeSingle()
     invoiceId = inv?.id ?? null
   }
+  const { data: row } = await supabase.from("encounters").select("arrived_at").eq("id", id).maybeSingle()
   revalidateQueue(v.patientId)
-  return ok({ id, invoiceId })
+  return ok({ id, invoiceId, arrivedAt: row?.arrived_at ?? null })
 }
 
 const STATUS = z.enum(["waiting_doctor", "with_doctor", "awaiting_checkout", "checked_out", "cancelled"])
@@ -132,5 +133,59 @@ export async function getWalkInDefaults(patientId: string): Promise<ActionResult
     assigned_doctor_id: patient.data.assigned_doctor_id,
     first_visit: (visits.count ?? 0) === 0 && (encounters.count ?? 0) === 0,
     open_encounter_id: open.data?.id ?? null,
+  })
+}
+
+/** Doctor: "Call patient now" — reception is notified in realtime. */
+export async function requestPatient(encounterId: string): Promise<ActionResult<void>> {
+  const auth = await authorize(P.visitsCreate)
+  if (auth.error) return auth.error
+  if (!z.uuid().safeParse(encounterId).success) return fail("validation")
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("request_patient", { p_encounter: encounterId })
+  if (error) return dbFail("requestPatient", error)
+  revalidateQueue()
+  return ok(undefined)
+}
+
+/** Reception: the requested patient is on the way to the doctor. */
+export async function markPatientSent(encounterId: string): Promise<ActionResult<void>> {
+  const auth = await authorize(P.encountersCreate, P.appointmentsCheckin)
+  if (auth.error) return auth.error
+  if (!z.uuid().safeParse(encounterId).success) return fail("validation")
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("mark_patient_sent", { p_encounter: encounterId })
+  if (error) return dbFail("markPatientSent", error)
+  revalidateQueue()
+  return ok(undefined)
+}
+
+export interface AppointmentDetail {
+  encounter: { id: string; status: EncounterStatus; prepay: boolean; arrived_at: string } | null
+  visits: { id: string; visit_type: string; status: string; started_at: string }[]
+  invoice: { id: string; invoice_number: string; total: number; balance_patient: number; status: string } | null
+}
+
+/** What an appointment turned into: clinic visit, medical visits, bill. */
+export async function getAppointmentDetail(appointmentId: string): Promise<ActionResult<AppointmentDetail>> {
+  const auth = await authorize(P.appointmentsView)
+  if (auth.error) return auth.error
+  if (!z.uuid().safeParse(appointmentId).success) return fail("validation")
+  const supabase = await createClient()
+  const [enc, visits, inv] = await Promise.all([
+    supabase.from("encounters").select("id, status, prepay, arrived_at").eq("appointment_id", appointmentId).maybeSingle(),
+    hasPermission(auth.session, P.visitsView) || hasPermission(auth.session, P.visitsViewRecent)
+      ? supabase.from("visits").select("id, visit_type, status, started_at").eq("appointment_id", appointmentId).order("started_at")
+      : Promise.resolve({ data: [], error: null }),
+    hasPermission(auth.session, P.accountingView)
+      ? supabase.from("invoices").select("id, invoice_number, total, balance_patient, status").eq("appointment_id", appointmentId).neq("status", "void").maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+  ])
+  const failed = [enc, visits, inv].find((r) => r.error)
+  if (failed?.error) return dbFail("getAppointmentDetail", failed.error)
+  return ok({
+    encounter: (enc.data as AppointmentDetail["encounter"]) ?? null,
+    visits: (visits.data ?? []) as AppointmentDetail["visits"],
+    invoice: (inv.data as AppointmentDetail["invoice"]) ?? null,
   })
 }

@@ -7,7 +7,12 @@ import { P } from "@/lib/permissions"
 import { addDaysIso, clinicDayRange, clinicToday, formatDateLong } from "@/lib/dates"
 import { PageHeader } from "@/components/common/page"
 import { AppointmentList } from "@/components/appointments/appointment-list"
-import { AppointmentFilters, AppointmentTabs, Pager } from "@/components/appointments/appointment-filters"
+import { AppointmentFilters, AppointmentTabs, DAY_VIEWS, DayViewChips, Pager, type DayView } from "@/components/appointments/appointment-filters"
+import { EncounterCards, QueueBoard } from "@/components/encounters/queue-board"
+import { SectionCard } from "@/components/common/page"
+import { getTodayQueue, type QueueEncounter } from "@/lib/data/encounters"
+import { getReferenceData } from "@/lib/data/reference"
+import { CalendarClock, DoorOpen, CheckCircle2 } from "lucide-react"
 import { NewAppointmentButton } from "@/components/appointments/new-appointment-button"
 import { WeekCalendar } from "@/components/appointments/week-calendar"
 import { RealtimeRefresh } from "@/components/realtime-refresh"
@@ -49,11 +54,11 @@ export default async function AppointmentsPage({ searchParams }: PageProps<"/app
     const to = clinicDayRange(addDaysIso(weekStart, 7)).start
     const { rows } = await getAppointments({ ...filters, from, to, limit: 1000 })
     content = <WeekCalendar weekStart={weekStart} rows={rows.filter((r) => r.status !== "rescheduled")} />
+  } else if (tab === "today") {
+    content = await clinicDay({ sp, filters, emptyAppointments: t("emptyTab.today"), session })
   } else {
     const query =
-      tab === "today"
-        ? { ...dayWindow(0), ascending: true }
-        : tab === "tomorrow"
+      tab === "tomorrow"
           ? { ...dayWindow(1), ascending: true }
           : tab === "upcoming"
             ? { start: nowIso, end: undefined, ascending: true }
@@ -77,7 +82,7 @@ export default async function AppointmentsPage({ searchParams }: PageProps<"/app
         {tab === "previous" && restrictedHistory && (
           <p className="mb-3 rounded-lg bg-muted/60 px-3 py-2 text-xs text-muted-foreground">{t("historyRestricted")}</p>
         )}
-        <AppointmentList rows={rows} showDate={tab !== "today" && tab !== "tomorrow"} emptyTitle={emptyTitle} />
+        <AppointmentList rows={rows} showDate={tab !== "tomorrow"} emptyTitle={emptyTitle} />
         <Pager page={page} pageSize={PAGE_SIZE} total={total} />
       </>
     )
@@ -85,11 +90,92 @@ export default async function AppointmentsPage({ searchParams }: PageProps<"/app
 
   return (
     <div className="space-y-4">
-      <RealtimeRefresh channel="appointments-page" specs={[{ table: "appointments" }]} />
+      <RealtimeRefresh
+        channel="appointments-page"
+        specs={[{ table: "appointments" }, { table: "encounters", filter: `queue_date=eq.${today}` }]}
+      />
       <PageHeader title={t("title")} description={t("subtitle")} actions={<NewAppointmentButton />} />
       <AppointmentTabs current={tab} />
       <AppointmentFilters />
       {content}
+    </div>
+  )
+}
+
+const ARRIVED = ["waiting_payment", "waiting_doctor", "called", "with_doctor", "awaiting_checkout"] as const
+const VIEW_FILTER: Record<Exclude<DayView, "all" | "appointments" | "visits">, readonly string[]> = {
+  waiting: ["waiting_payment", "waiting_doctor", "called"],
+  with_doctor: ["with_doctor"],
+  completed: ["awaiting_checkout", "checked_out"],
+}
+
+/**
+ * The clinic day in one place: planned appointments and actual clinic visits
+ * (walk-ins and arrived appointments), with filters instead of extra pages.
+ */
+async function clinicDay({
+  sp,
+  filters,
+  emptyAppointments,
+  session,
+}: {
+  sp: Record<string, string | string[] | undefined>
+  filters: { doctorId: string | null; departmentId: string | null; visitType: string | null; statuses?: AppointmentStatus[] }
+  emptyAppointments: string
+  session: Awaited<ReturnType<typeof requirePagePermission>>
+}) {
+  const t = await getTranslations("appointments")
+  const view: DayView = (DAY_VIEWS as readonly string[]).includes(str(sp.view) ?? "") ? (str(sp.view) as DayView) : "all"
+  const canQueue = hasPermission(session, P.encountersCreate) || hasPermission(session, P.visitsCreate) || hasPermission(session, P.accountingView)
+  const [{ rows: appts }, queue, refs] = await Promise.all([
+    getAppointments({ ...filters, ...dayWindow(0), ascending: true, limit: 300 }),
+    canQueue ? getTodayQueue() : Promise.resolve({ rows: [] as QueueEncounter[], error: false }),
+    getReferenceData(),
+  ])
+  const visits = queue.rows.filter((e) => !filters.doctorId || e.doctor_id === filters.doctorId)
+  const arrivedAppointments = new Set(visits.map((e) => e.appointment_id).filter(Boolean))
+  const notArrived = appts.filter((a) => !arrivedAppointments.has(a.id) && a.status !== "rescheduled")
+  const inClinic = visits.filter((e) => (ARRIVED as readonly string[]).includes(e.status))
+  const by = (statuses: readonly string[]) => visits.filter((e) => statuses.includes(e.status))
+  const counts: Record<DayView, number> = {
+    all: notArrived.length + visits.filter((e) => e.status !== "cancelled").length,
+    appointments: appts.filter((a) => a.status !== "rescheduled").length,
+    visits: visits.filter((e) => e.status !== "cancelled").length,
+    waiting: by(VIEW_FILTER.waiting).length,
+    with_doctor: by(VIEW_FILTER.with_doctor).length,
+    completed: by(VIEW_FILTER.completed).length,
+  }
+
+  let body: React.ReactNode
+  if (view === "appointments") {
+    body = <AppointmentList rows={appts.filter((a) => a.status !== "rescheduled")} emptyTitle={emptyAppointments} />
+  } else if (view === "visits") {
+    body = <QueueBoard rows={visits} prepay={refs.settings.collect_payment_before_consultation} />
+  } else if (view !== "all") {
+    body = <EncounterCards rows={by(VIEW_FILTER[view])} empty={t(`viewEmpty.${view}`)} />
+  } else {
+    body = (
+      <div className="space-y-4">
+        {canQueue && (
+          <SectionCard title={t("inClinicNow")} icon={DoorOpen} bodyClassName="p-3">
+            <EncounterCards rows={inClinic} empty={t("viewEmpty.inClinic")} />
+          </SectionCard>
+        )}
+        <SectionCard title={t("upcomingToday")} icon={CalendarClock} bodyClassName="p-3">
+          <AppointmentList rows={notArrived} emptyTitle={emptyAppointments} />
+        </SectionCard>
+        {canQueue && by(["checked_out"]).length > 0 && (
+          <SectionCard title={t("finishedToday")} icon={CheckCircle2} bodyClassName="p-3">
+            <EncounterCards rows={by(["checked_out"])} empty="" />
+          </SectionCard>
+        )}
+      </div>
+    )
+  }
+  return (
+    <div className="space-y-3">
+      <DayViewChips current={view} counts={counts} />
+      {body}
     </div>
   )
 }

@@ -21,7 +21,8 @@
     "doctor": "الطبيب",
     "department": "القسم",
     "status": "الحالة",
-    "visitType": "نوع الزيارة"
+    "visitType": "نوع الزيارة",
+    "close": "إغلاق"
   },
   "nav": {
     "main": "التنقل الرئيسي",
@@ -148,7 +149,7 @@
     "validation": "يرجى التحقق من الحقول المحددة",
     "uploadFailed": "لم يكتمل الرفع. يرجى المحاولة مجدداً.",
     "fileTooLarge": "حجم الملف كبير جداً.",
-    "fileType": "نوع الملف غير مسموح. استخدم PDF أو JPG أو PNG أو WEBP أو HEIC.",
+    "fileType": "نوع الملف غير مسموح. استخدم PDF أو الصور (JPG, PNG, WEBP, HEIC) أو Word أو Excel.",
     "network": "مشكلة في الاتصال. لم يُحفظ التغيير.",
     "unexpected": "حدث خطأ ما. يرجى المحاولة مجدداً.",
     "rateLimited": "طلبات كثيرة. يرجى الانتظار قليلاً ثم المحاولة مرة أخرى.",
@@ -182,7 +183,9 @@
       "rescheduleAppointment": "تعذر تغيير موعد الحجز. يرجى المحاولة مرة أخرى.",
       "saveUser": "تعذر حفظ المستخدم. يرجى المحاولة مرة أخرى.",
       "createUser": "تعذر إنشاء المستخدم. يرجى المحاولة مرة أخرى.",
-      "saveDoctor": "تعذر حفظ بيانات الطبيب. يرجى المحاولة مرة أخرى."
+      "saveDoctor": "تعذر حفظ بيانات الطبيب. يرجى المحاولة مرة أخرى.",
+      "uploadDocument": "تعذر رفع الملف. يرجى المحاولة مرة أخرى.",
+      "markPatientSent": "تعذر تحديث الطلب. يرجى المحاولة مرة أخرى."
     }
   },
   "fields": {
@@ -322,7 +325,20 @@
     "upcoming": "القادمة",
     "noUpcoming": "لا توجد مواعيد قادمة.",
     "welcomeNoAccess": "مرحباً",
-    "welcomeNoAccessBody": "لا يملك حسابك صلاحية المواعيد. اطلبها من المسؤول إن احتجت."
+    "welcomeNoAccessBody": "لا يملك حسابك صلاحية المواعيد. اطلبها من المسؤول إن احتجت.",
+    "todayCards": "اليوم في العيادة",
+    "inClinic": "في العيادة الآن",
+    "waitingPayment": "بانتظار الدفع",
+    "doctorRequests": "طلبات الأطباء",
+    "paymentsDue": "دفعات مطلوب استلامها",
+    "quick": {
+      "newPatient": "مريضة جديدة",
+      "newPatientHint": "فتح ملف مريضة",
+      "newAppointment": "موعد جديد",
+      "newAppointmentHint": "حجز وقت قادم",
+      "newVisit": "زيارة جديدة",
+      "newVisitHint": "المريضة موجودة الآن"
+    }
   },
   "appointments": {
     "appointments": "المواعيد",
@@ -420,7 +436,45 @@
     "outsideHoursBlocked": "هذا الموعد خارج ساعات العمل المحددة.",
     "outsideNeedsTick": "هذا الوقت خارج ساعات العمل المحددة. فعّل «السماح خارج ساعات العمل» للحجز رغم ذلك.",
     "outsideNotAllowed": "هذا الوقت خارج ساعات العمل المحددة ودورك لا يسمح بالحجز خارجها.",
-    "outsideWarning": "هذا الموعد خارج ساعات العمل المحددة. سيتم حفظه مع تمييزه بذلك."
+    "outsideWarning": "هذا الموعد خارج ساعات العمل المحددة. سيتم حفظه مع تمييزه بذلك.",
+    "createVisit": "المريضة وصلت — إنشاء زيارة",
+    "inClinicNow": "في العيادة الآن",
+    "upcomingToday": "مواعيد لم تصل بعد",
+    "finishedToday": "انتهت اليوم",
+    "views": {
+      "label": "عروض اليوم",
+      "all": "الكل",
+      "appointments": "المواعيد",
+      "visits": "زيارات اليوم",
+      "waiting": "بالانتظار",
+      "with_doctor": "عند الطبيب",
+      "completed": "مكتملة"
+    },
+    "viewEmpty": {
+      "inClinic": "لا توجد مريضات في العيادة حالياً.",
+      "waiting": "لا أحد بالانتظار.",
+      "with_doctor": "لا توجد مريضة عند الطبيب.",
+      "completed": "لا توجد زيارات مكتملة اليوم بعد."
+    },
+    "detail": {
+      "open": "تفاصيل الموعد",
+      "title": "الموعد",
+      "planned": "المخطط",
+      "patient": "المريضة",
+      "doctor": "الطبيب",
+      "scheduledFor": "موعده",
+      "reason": "السبب / الخدمة",
+      "status": "الحالة",
+      "payment": "الدفع",
+      "cash": "نقدي",
+      "noCharge": "بدون رسوم",
+      "outsideHours": "خارج ساعات العمل",
+      "notes": "ملاحظات",
+      "relatedVisit": "الزيارة المرتبطة",
+      "arrived": "وصلت",
+      "notArrived": "لم تصل المريضة بعد. سجّل الوصول لإنشاء الزيارة.",
+      "loadFailed": "تعذر تحميل الزيارة المرتبطة."
+    }
   },
   "patients": {
     "patients": "المرضى",
@@ -527,7 +581,10 @@
       "checkout": "المحاسبة / الدفع",
       "collect": "استلام الدفعة",
       "continueVisit": "متابعة الزيارة",
-      "visitNow": "إنشاء زيارة الآن"
+      "visitNow": "إنشاء زيارة الآن",
+      "addDocument": "إضافة مستند",
+      "newReport": "تقرير جديد",
+      "prescription": "وصفة"
     },
     "tabs": {
       "label": "أقسام ملف المريضة",
@@ -703,7 +760,39 @@
       "waiting_doctor": "بانتظار الطبيب",
       "awaiting_checkout": "جاهزة للمغادرة",
       "checked_out": "غادرت",
-      "refunded": "مستردّة"
+      "refunded": "مستردّة",
+      "called": "استدعاها الطبيب"
+    },
+    "by": "بواسطة {who}",
+    "open": "فتح",
+    "more": "عرض المزيد",
+    "filters": {
+      "all": "الكل",
+      "visits": "الزيارات",
+      "appointments": "المواعيد",
+      "cases": "الحالات",
+      "files": "السونار والملفات",
+      "clinical": "الوصفات والتقارير",
+      "billing": "الحسابات"
+    },
+    "kind": {
+      "patient_created": "المريضة",
+      "appointment": "موعد",
+      "checked_in": "موعد",
+      "visit": "زيارة طبية",
+      "fertility_case": "خصوبة",
+      "pregnancy_case": "حمل",
+      "oi_cycle_started": "دورة تحريض",
+      "oi_cycle_completed": "دورة تحريض",
+      "document": "ملف",
+      "drawing": "سونار",
+      "prescription": "وصفة",
+      "medical_report": "تقرير",
+      "invoice": "فاتورة",
+      "payment": "دفعة",
+      "generated_document": "مستند",
+      "clinic_visit": "زيارة",
+      "checked_out": "زيارة"
     }
   },
   "visits": {
@@ -727,7 +816,8 @@
       "investigations": "الفحوصات",
       "imaging": "صور السونار والرسومات",
       "prescription": "الوصفة الطبية",
-      "billing": "ملخص الحساب"
+      "billing": "ملخص الحساب",
+      "attachments": "المرفقات"
     },
     "selectType": "اختر نوع الزيارة",
     "selectTypeHint": "يحدد نوع الزيارة النموذج الطبي الذي سيُفتح. يبقى التاريخ المشترك متاحاً.",
@@ -774,7 +864,15 @@
     "newPregnancy": "متابعة حمل جديدة",
     "newFollowUp": "زيارة متابعة جديدة",
     "exportSummary": "الملخص",
-    "exportFollowup": "جدول المتابعة"
+    "exportFollowup": "جدول المتابعة",
+    "quick": {
+      "startedAt": "بدأت {time}",
+      "addService": "إضافة خدمة",
+      "addDocument": "إضافة مستند",
+      "prescription": "وصفة",
+      "report": "تقرير",
+      "ultrasound": "سونار"
+    }
   },
   "forms": {
     "sections": "الأقسام"
@@ -1017,7 +1115,12 @@
       "investigation": "فحص",
       "ultrasound": "أمواج فوق صوتية",
       "medical": "مستند طبي",
-      "other": "أخرى"
+      "other": "أخرى",
+      "lab": "تقرير مختبر",
+      "imaging": "تصوير (HSG، رنين، طبقي…)",
+      "referral": "رسالة تحويل",
+      "previous_report": "تقرير طبي سابق",
+      "identity": "هوية / جواز سفر"
     },
     "docTitle": "العنوان",
     "notes": "ملاحظات",
@@ -1025,7 +1128,7 @@
     "done": "تم الرفع",
     "uploaded": "تم رفع {name}",
     "cancelUpload": "إلغاء الرفع",
-    "fileType": "نوع الملف غير مسموح. استخدم PDF أو JPG أو PNG أو WEBP أو HEIC.",
+    "fileType": "نوع الملف غير مسموح. استخدم PDF أو الصور (JPG, PNG, WEBP, HEIC) أو Word أو Excel.",
     "fileTooLarge": "حجم الملف أكبر من {max} ميغابايت.",
     "view": "عرض",
     "download": "تنزيل",
@@ -1040,7 +1143,29 @@
     "archiveTitle": "أرشفة المستند؟",
     "archiveBody": "سيُخفى \"{name}\" من القائمة النشطة. يبقى الملف محفوظاً ويمكن استعادته.",
     "archivedDone": "تمت أرشفة المستند",
-    "cancel": "إلغاء"
+    "cancel": "إلغاء",
+    "attachTo": "إرفاق إلى",
+    "level": {
+      "visit": "هذه الزيارة",
+      "patient": "ملف المريضة"
+    },
+    "camera": "الكاميرا",
+    "cancelled": "أُلغي",
+    "chooseFiles": "اختيار ملفات",
+    "description": "الوصف",
+    "displayName": "الاسم الظاهر",
+    "documentDate": "تاريخ المستند",
+    "removeFile": "إزالة",
+    "retry": "إعادة المحاولة",
+    "tags": "وسوم",
+    "tagsPlaceholder": "مثلاً: المبيض الأيمن، مراجعة",
+    "uploadCount": "{count, plural, =0 {رفع} one {رفع ملف واحد} two {رفع ملفين} few {رفع # ملفات} many {رفع # ملفاً} other {رفع # ملف}}",
+    "uploadHintMulti": "عدة ملفات دفعة واحدة: PDF أو صور أو Word أو Excel (حتى {max} ميغابايت لكل ملف). أعطِ كل ملف اسماً واضحاً.",
+    "uploadedCount": "{count, plural, one {تم رفع ملف واحد} two {تم رفع ملفين} few {تم رفع # ملفات} many {تم رفع # ملفاً} other {تم رفع # ملف}}",
+    "editMeta": "تعديل التفاصيل",
+    "metaSaved": "تم حفظ التفاصيل",
+    "uploadedBy": "{when} · {who}",
+    "emptyVisit": "لا توجد ملفات مرفقة بهذه الزيارة."
   },
   "cases": {
     "newFertility": "ملف خصوبة جديد",
@@ -1211,7 +1336,20 @@
       "system": {
         "title": "رسالة النظام",
         "body": "{detail}"
+      },
+      "patient_requested": {
+        "title": "🔔 {doctor} طلب {patient}",
+        "body": "يرجى إرسال {patient} ({code}) إلى {doctor}."
+      },
+      "bill_ready": {
+        "title": "انتهت الزيارة لدى {doctor}",
+        "body": "{patient} — مطلوب الدفع: {amount}."
       }
+    },
+    "actions": {
+      "markSent": "تم إرسال المريضة",
+      "markedSent": "سيرى الطبيب أن المريضة في الطريق",
+      "openPayment": "فتح الدفع"
     }
   },
   "palette": {
@@ -1277,7 +1415,8 @@
     "alwaysOn": "مفعّل دائماً",
     "inApp": "داخل النظام",
     "emailChannel": "البريد",
-    "sessionsLink": "الجلسات النشطة والمتصفحات الموثوقة وسجل الدخول"
+    "sessionsLink": "الجلسات النشطة والمتصفحات الموثوقة وسجل الدخول",
+    "soundAlerts": "صوت خفيف لتنبيهات الانتظار (طلبات الطبيب، الفواتير الجاهزة، وصول مريضة)"
   },
   "admin": {
     "users": "المستخدمون",
@@ -2853,7 +2992,13 @@
     "saveDiscount": "حفظ الخصم",
     "serviceAdded": "تمت إضافة الخدمة",
     "discountLimitHint": "السبب مطلوب. يسمح دورك بخصم حتى {percent}%.",
-    "discountReasonHint": "السبب مطلوب لكل خصم."
+    "discountReasonHint": "السبب مطلوب لكل خصم.",
+    "decrease": "إنقاص الكمية",
+    "increase": "زيادة الكمية",
+    "finishVisit": "إنهاء الزيارة",
+    "visitFinished": "انتهت الزيارة — الفاتورة الآن لدى الاستقبال",
+    "finishHintPrepay": "الإنهاء يرسل أي خدمات إضافية إلى الاستقبال للدفع عند المغادرة.",
+    "finishHintPostpay": "الإنهاء يعتمد الفاتورة النهائية ويُبلغ الاستقبال لاستلامها."
   },
   "weekdays": {
     "0": "الأحد",
@@ -2970,7 +3115,21 @@
       "awaiting_checkout": "جاهزة للمغادرة",
       "bill_finalized": "الفاتورة نهائية · بانتظار الدفع",
       "checked_out": "غادرت",
-      "cancelled": "ملغاة"
-    }
+      "cancelled": "ملغاة",
+      "called": "استدعاها الطبيب"
+    },
+    "arrivedAt": "وصلت {time}",
+    "bookedAt": "موعد {time}",
+    "callPatient": "استدعاء المريضة",
+    "requested": "تم إبلاغ الاستقبال بإرسال المريضة",
+    "doctorRequested": "طلبها الطبيب",
+    "patientSent": "المريضة في الطريق",
+    "markSent": "تم إرسال المريضة",
+    "markedSent": "تم التأشير كمُرسلة",
+    "createdAt": "تم إنشاء الزيارة الساعة {time}",
+    "openPatient": "فتح ملف المريضة",
+    "collectNow": "استلام الدفعة",
+    "openBill": "فتح الفاتورة",
+    "newPatient": "مريضة جديدة"
   }
 }

@@ -73,6 +73,8 @@ export function VisitWorkspace(props: {
   /** Server-rendered sections (ultrasound images & drawings, prescription, billing). */
   extras?: React.ReactNode
   extraSections?: { id: string; label: string }[]
+  /** Time, queue/payment status and contextual actions under the visit title. */
+  headerExtra?: React.ReactNode
 }) {
   const t = useTranslations("visits")
   const v = props.bundle.visit
@@ -99,6 +101,7 @@ function VisitWorkspaceInner({
   perms,
   extras,
   extraSections = [],
+  headerExtra,
 }: {
   patient: { id: string; full_name: string; patient_code: string }
   bundle: VisitBundle
@@ -107,6 +110,7 @@ function VisitWorkspaceInner({
   perms: VisitPerms
   extras?: React.ReactNode
   extraSections?: { id: string; label: string }[]
+  headerExtra?: React.ReactNode
 }) {
   const t = useTranslations("visits")
   const ts = useTranslations("historyExam.sections")
@@ -259,6 +263,7 @@ function VisitWorkspaceInner({
             {t("cancelVisit")}
           </Button>
         )}
+        {headerExtra && <div className="basis-full">{headerExtra}</div>}
       </div>
 
       <div className={panel ? "grid gap-5 xl:grid-cols-[300px_minmax(0,1fr)]" : "grid gap-5 lg:grid-cols-[170px_minmax(0,1fr)]"}>

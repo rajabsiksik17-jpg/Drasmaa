@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback } from "react"
+import { useCallback, useMemo } from "react"
 import { useLocale, useTranslations } from "next-intl"
 import { formatDateTime, formatTime } from "@/lib/dates"
 import { NOTIFICATION_TYPES, type AppNotification } from "@/types/db"
@@ -13,7 +13,7 @@ import { NOTIFICATION_TYPES, type AppNotification } from "@/types/db"
 export function useNotificationText() {
   const t = useTranslations("notifications")
   const locale = useLocale()
-  return useCallback(
+  const render = useCallback(
     (n: AppNotification) => {
       const d = n.data ?? {}
       const str = (v: unknown) => (typeof v === "string" ? v : "")
@@ -31,6 +31,7 @@ export function useNotificationText() {
         hours: Math.floor(offset / 60),
         minutes: offset,
         detail: n.message ?? "",
+        amount: d.amount ? `${str(d.amount)} ${str(d.currency)}` : "",
       }
       if (!(NOTIFICATION_TYPES as readonly string[]).includes(n.type) || n.type === "system") {
         return { title: n.title, body: n.message ?? "" }
@@ -39,4 +40,6 @@ export function useNotificationText() {
     },
     [t, locale],
   )
+  // Short labels for toast actions.
+  return useMemo(() => Object.assign(render, { label: (key: "markSent" | "markedSent" | "openPayment") => t(`actions.${key}`) }), [render, t])
 }

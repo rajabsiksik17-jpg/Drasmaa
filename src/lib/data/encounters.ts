@@ -8,10 +8,11 @@ export interface QueueEncounter extends Encounter {
   patient: Pick<Patient, "id" | "full_name" | "patient_code" | "dob" | "phone"> | null
   invoices: { id: string; invoice_number: string; total: number; balance_patient: number; status: InvoiceStatus }[]
   visits: { id: string; visit_type: VisitType; status: VisitStatus }[]
+  appointment: { scheduled_at: string } | null
 }
 
 const SELECT =
-  "*, patient:patients(id, full_name, patient_code, dob, phone), invoices(id, invoice_number, total, balance_patient, status), visits(id, visit_type, status)"
+  "*, patient:patients(id, full_name, patient_code, dob, phone), invoices(id, invoice_number, total, balance_patient, status), visits(id, visit_type, status), appointment:appointments(scheduled_at)"
 
 /** Today's clinic visits (the real queue), oldest arrival first. RLS applies. */
 export async function getTodayQueue(opts: { doctorId?: string | null; statuses?: EncounterStatus[] } = {}): Promise<{ rows: QueueEncounter[]; error: boolean }> {

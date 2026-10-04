@@ -10,7 +10,7 @@ import { limit } from "@/lib/security/rate-limit"
 
 const refresh = (invoiceId?: string, patientId?: string) => {
   revalidatePath("/accounting", "layout")
-  revalidatePath("/today")
+  revalidatePath("/appointments")
   if (invoiceId) revalidatePath(`/accounting/invoices/${invoiceId}`)
   if (patientId) revalidatePath(`/patients/${patientId}`)
 }

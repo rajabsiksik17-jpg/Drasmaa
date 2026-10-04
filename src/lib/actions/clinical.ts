@@ -43,7 +43,7 @@ export async function startVisit(input: {
   if (error) return dbFail("startVisit", error)
   revalidatePath(`/patients/${parsed.data.patientId}`, "layout")
   revalidatePath("/dashboard")
-  revalidatePath("/today")
+  revalidatePath("/appointments")
   return ok({ visitId: data as string })
 }
 
@@ -55,7 +55,7 @@ export async function completeVisit(visitId: string): Promise<ActionResult> {
   const { error } = await supabase.rpc("complete_visit", { p_visit: visitId })
   if (error) return dbFail("completeVisit", error)
   revalidatePath("/dashboard")
-  revalidatePath("/today")
+  revalidatePath("/appointments")
   revalidatePath("/patients", "layout")
   return ok(undefined)
 }

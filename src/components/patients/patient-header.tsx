@@ -22,6 +22,7 @@ import {
   MessageSquareText,
   MoreHorizontal,
   Phone,
+  Pill,
   Play,
   Printer,
   Share2,
@@ -292,7 +293,7 @@ export function PatientHeader({ ctx }: { ctx: PatientContext }) {
           </div>
           <div className="no-print flex shrink-0 items-center gap-1.5">
             {primary}
-            <DesktopActions ctx={ctx} pending={pending} onVisit={() => openVisit(null)} onAppointment={() => setDialog("appointment")} onMessage={() => setDialog("message")} onShare={() => setDialog("share")} onOi={openOi} />
+            <DesktopActions ctx={ctx} onVisit={() => openVisit(null)} onAppointment={() => setDialog("appointment")} onUpload={() => setDialog("upload")} />
             {menu}
           </div>
         </div>
@@ -479,26 +480,21 @@ function PrimaryAction({
 /** Secondary buttons, desktop only (phones use the menu). */
 function DesktopActions({
   ctx,
-  pending,
   onVisit,
   onAppointment,
-  onMessage,
-  onShare,
-  onOi,
+  onUpload,
 }: {
   ctx: PatientContext
-  pending: boolean
   onVisit: () => void
   onAppointment: () => void
-  onMessage: () => void
-  onShare: () => void
-  onOi: () => void
+  onUpload: () => void
 }) {
   const t = useTranslations("patient.actions")
   const can = useCan()
+  const base = `/patients/${ctx.patient.id}`
   return (
     <div className="hidden items-center gap-1.5 lg:flex">
-      {can(P.visitsCreate) && !ctx.openEncounter && (
+      {can(P.visitsCreate) && !ctx.openEncounter && !can(P.encountersCreate) && (
         <Button size="sm" variant="outline" onClick={onVisit}>
           <Stethoscope />
           {t("newVisit")}
@@ -510,19 +506,26 @@ function DesktopActions({
           {t("appointment")}
         </Button>
       )}
-      {can(P.messagesSend) && (
-        <Button size="icon-sm" variant="outline" onClick={onMessage} aria-label={t("message")}>
-          <MessageSquareText />
+      {can(P.documentsUpload) && (
+        <Button size="sm" variant="outline" onClick={onUpload}>
+          <FileUp />
+          {t("addDocument")}
         </Button>
       )}
-      {can(P.documentsGenerate) && (
-        <Button size="icon-sm" variant="outline" onClick={onShare} aria-label={t("share")}>
-          <Share2 />
+      {can(P.reportsCreate) && (
+        <Button size="sm" variant="outline" asChild>
+          <Link href={`/reports/new?patient=${ctx.patient.id}`}>
+            <FileSignature />
+            {t("newReport")}
+          </Link>
         </Button>
       )}
-      {can(P.oiEdit) && (
-        <Button size="icon-sm" variant="outline" onClick={onOi} disabled={pending} aria-label={ctx.activeCycle ? t("openOi") : t("startOi")}>
-          <HeartPulse />
+      {can(P.prescriptionsCreate) && (
+        <Button size="sm" variant="outline" asChild>
+          <Link href={`${base}?tab=prescriptions`}>
+            <Pill />
+            {t("prescription")}
+          </Link>
         </Button>
       )}
     </div>
@@ -577,30 +580,38 @@ function ActionMenu({
               {t("appointment")}
             </DropdownMenuItem>
           )}
-          {can(P.messagesSend) && (
-            <DropdownMenuItem onSelect={onMessage}>
-              <MessageSquareText />
-              {t("message")}
+          {can(P.documentsUpload) && (
+            <DropdownMenuItem onSelect={onUpload}>
+              <FileUp />
+              {t("addDocument")}
             </DropdownMenuItem>
           )}
-          {can(P.documentsGenerate) && (
-            <DropdownMenuItem onSelect={onShare}>
-              <Share2 />
-              {t("share")}
-            </DropdownMenuItem>
-          )}
-          {can(P.oiEdit) && (
-            <DropdownMenuItem onSelect={onOi}>
-              <HeartPulse />
-              {ctx.activeCycle ? t("openOi") : t("startOi")}
+          {can(P.prescriptionsCreate) && (
+            <DropdownMenuItem asChild>
+              <Link href={`${base}?tab=prescriptions`}>
+                <Pill />
+                {t("prescription")}
+              </Link>
             </DropdownMenuItem>
           )}
           <DropdownMenuSeparator />
         </div>
-        {can(P.documentsUpload) && (
-          <DropdownMenuItem onSelect={onUpload}>
-            <FileUp />
-            {t("upload")}
+        {can(P.messagesSend) && (
+          <DropdownMenuItem onSelect={onMessage}>
+            <MessageSquareText />
+            {t("message")}
+          </DropdownMenuItem>
+        )}
+        {can(P.documentsGenerate) && (
+          <DropdownMenuItem onSelect={onShare}>
+            <Share2 />
+            {t("share")}
+          </DropdownMenuItem>
+        )}
+        {can(P.oiEdit) && (
+          <DropdownMenuItem onSelect={onOi}>
+            <HeartPulse />
+            {ctx.activeCycle ? t("openOi") : t("startOi")}
           </DropdownMenuItem>
         )}
         {can(P.fertilityEdit) && (
@@ -616,10 +627,10 @@ function ActionMenu({
           </DropdownMenuItem>
         )}
         {can(P.reportsCreate) && (
-          <DropdownMenuItem asChild>
+          <DropdownMenuItem asChild className="lg:hidden">
             <Link href={`/reports/new?patient=${ctx.patient.id}`}>
               <FileSignature />
-              {t("addReport")}
+              {t("newReport")}
             </Link>
           </DropdownMenuItem>
         )}

@@ -62,6 +62,8 @@ export interface UserPreferences {
   dashboard?: "default" | "queue_first"
   notify_checkin?: boolean
   notify_reminders?: boolean
+  /** Soft chime for queue alerts (doctor request, bill ready, patient waiting). Off by default. */
+  sound_alerts?: boolean
 }
 
 export interface Doctor extends Versioned {
@@ -308,6 +310,8 @@ export const NOTIFICATION_TYPES = [
   "appointment_cancelled",
   "appointment_rescheduled",
   "patient_checked_in",
+  "patient_requested",
+  "bill_ready",
   "appointment_missed",
   "whatsapp_reminder_ready",
   "patient_registered",
@@ -549,7 +553,8 @@ export interface InvestigationResult extends Versioned {
   notes: string | null
 }
 
-export type DocumentCategory = "sfa" | "ivf_consent" | "investigation" | "ultrasound" | "medical" | "other"
+export const DOCUMENT_CATEGORIES = ["ultrasound", "lab", "imaging", "investigation", "previous_report", "referral", "medical", "identity", "sfa", "ivf_consent", "other"] as const
+export type DocumentCategory = (typeof DOCUMENT_CATEGORIES)[number]
 
 export interface PatientDocument extends Versioned {
   id: string
@@ -568,6 +573,9 @@ export interface PatientDocument extends Versioned {
   notes: string | null
   uploaded_by: string | null
   uploaded_at: string
+  document_date?: string | null
+  tags?: string[]
+  investigation_id?: string | null
 }
 
 export interface IvfConsent extends Versioned {
@@ -880,7 +888,7 @@ export interface MedicalDrawing extends Versioned {
 // ---------------------------------------------------------------------
 // Clinic visits (encounters): the patient's real presence in the clinic
 // ---------------------------------------------------------------------
-export type EncounterStatus = "waiting_payment" | "waiting_doctor" | "with_doctor" | "awaiting_checkout" | "checked_out" | "cancelled"
+export type EncounterStatus = "waiting_payment" | "waiting_doctor" | "called" | "with_doctor" | "awaiting_checkout" | "checked_out" | "cancelled"
 
 export interface Encounter extends Versioned {
   id: string
@@ -900,6 +908,10 @@ export interface Encounter extends Versioned {
   checked_out_at: string | null
   cancelled_at: string | null
   status_reason: string | null
+  called_at?: string | null
+  called_by?: string | null
+  patient_sent_at?: string | null
+  patient_sent_by?: string | null
 }
 
 export interface Medication extends Versioned {

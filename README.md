@@ -195,7 +195,14 @@ messages/             en.json, ar.json (identical key sets, enforced by tests)
   arrival time from the database clock, queue status, bill. Walk-ins need no appointment: **Create visit now**
   (patient header, Today's visits, or the last step of new-patient registration). Checking in an appointment
   opens its clinic visit automatically; the doctor's medical visit (forms, ultrasound, prescription) belongs to it.
-- **Today's visits** (`/today`) is the live queue (realtime, scoped to today). Lanes follow the
+- **No extra pages**: the clinic day lives in **Appointments → Today** (views: All · Appointments · Today's visits ·
+  Waiting · With doctor · Completed) and on the **Dashboard** (quick actions New patient / New appointment / New
+  visit, today's cards, doctor requests, payments due). `/today` redirects there.
+- **Doctor requests**: "Call patient" (waiting → called) notifies reception in realtime with a "Mark patient sent"
+  action; finishing a visit with an amount to collect sends "Payment required" to reception (0017).
+- **Attachments**: several files at once (drag & drop, picker, phone camera), PDF / images / Word / Excel, each with
+  a display name, category, description, date, tags and level (patient or visit); the stored file never changes.
+- The live queue (realtime, scoped to today). Lanes follow the
   **payment workflow** (Admin → Billing & workflow, default ON):
   - ON: registration → bill → payment → doctor queue → doctor → checkout. Paying the bill moves the patient to
     the doctor's queue automatically; sending an unpaid patient needs a reason.

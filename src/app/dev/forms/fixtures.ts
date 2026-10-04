@@ -4,6 +4,7 @@ import type { HistoryExamData } from "@/components/medical/history-exam-form"
 import type { CycleBundle } from "@/lib/data/cycle"
 import type { QueueEncounter } from "@/lib/data/encounters"
 import type { PatientContext } from "@/lib/data/patient"
+import type { TimelineEvent } from "@/types/db"
 import type { PregnancyCase, PregnancyFollowup } from "@/types/db"
 
 const meta = { version: 1, created_at: "2026-10-01T08:00:00Z", updated_at: "2026-10-01T08:00:00Z", created_by: null, updated_by: null }
@@ -159,11 +160,12 @@ const enc = (id: string, status: QueueEncounter["status"], name: string, minutes
   patient: { id: pid, full_name: name, patient_code: `PAT-0001${id}`, dob: "1994-06-14", phone: "0790000001" },
   invoices: [{ id: `inv-${id}`, invoice_number: `INV-2026-00000${id}`, total: 40, balance_patient: balance, status: balance > 0 ? "open" : "paid" }],
   visits: [],
+  appointment: null,
 })
 
 export const queue: QueueEncounter[] = [
   enc("1", "waiting_payment", "سارة أحمد محمود العبدالله", 25, 40),
-  enc("2", "waiting_doctor", "Lina Khaled", 18, 0),
+  enc("2", "called", "Lina Khaled", 18, 0),
   enc("3", "with_doctor", "مريم يوسف", 10, 0),
   enc("4", "awaiting_checkout", "Huda Samir Al-Haddad with a very long family name", 5, 25),
 ]
@@ -180,3 +182,17 @@ export const patientCtx: PatientContext = {
   openEncounter: queue[0],
   pregnancyGa: { weeks: 12, days: 3 },
 }
+
+const ev = (event_type: TimelineEvent["event_type"], at: string, subtype: string | null, status: string | null): TimelineEvent => ({
+  patient_id: pid, event_type, occurred_at: at, entity_type: event_type, entity_id: `${event_type}-${at}`, subtype, status, actor_id: null, number: 1,
+})
+export const timeline: TimelineEvent[] = [
+  ev("payment", "2026-10-04T08:05:00Z", "card", "payment"),
+  ev("checked_out", "2026-10-04T08:04:00Z", "walk_in", "checked_out"),
+  ev("drawing", "2026-10-04T07:50:00Z", "gynecology", "active"),
+  ev("visit", "2026-10-04T07:40:00Z", "gynecology", "completed"),
+  ev("clinic_visit", "2026-10-04T07:17:00Z", "walk_in", "checked_out"),
+  ev("appointment", "2026-10-03T11:30:00Z", "fertility", "completed"),
+  ev("prescription", "2026-10-03T11:50:00Z", null, "issued"),
+  ev("document", "2026-09-03T09:00:00Z", "lab", "active"),
+]

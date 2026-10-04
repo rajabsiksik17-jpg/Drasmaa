@@ -80,7 +80,7 @@ export async function createPatient(
   revalidatePath("/patients")
   let invoiceId: string | null = null
   if (row.encounter_id) {
-    revalidatePath("/today")
+    revalidatePath("/appointments")
     if (hasPermission(auth.session, P.accountingView)) {
       const { data: inv } = await supabase.from("invoices").select("id").eq("encounter_id", row.encounter_id).neq("status", "void").maybeSingle()
       invoiceId = inv?.id ?? null

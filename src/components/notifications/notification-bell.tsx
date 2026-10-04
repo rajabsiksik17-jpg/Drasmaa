@@ -27,6 +27,7 @@ import {
   UserPlus,
   UserRoundX,
   type LucideIcon,
+  Wallet,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -44,6 +45,8 @@ export const NOTIFICATION_ICONS: Record<NotificationType, LucideIcon> = {
   appointment_cancelled: CalendarX2,
   appointment_rescheduled: CalendarClock,
   patient_checked_in: UserCheck,
+  patient_requested: BellRing,
+  bill_ready: Wallet,
   appointment_missed: UserRoundX,
   whatsapp_reminder_ready: MessageCircle,
   patient_registered: UserPlus,

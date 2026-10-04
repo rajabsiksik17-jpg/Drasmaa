@@ -326,3 +326,47 @@ describe("ultrasound drawings: delete (archive) and restore", () => {
     expect((await one<{ status: string; archived_at: string | null }>("select status, archived_at from medical_drawings where id = $1", [d.id]))).toEqual({ status: "active", archived_at: null })
   })
 })
+
+describe("doctor requests and live queue events (0017)", () => {
+  it("doctor calls the patient, reception is told and marks the patient sent", async () => {
+    await setPrepay(false)
+    const p = await registerPatient("Sarah Ahmad", { service_id: consultation })
+    const enc = p.encounter_id!
+    // Reception cannot call patients in.
+    await expect(db.as(reception, () => db.query("select public.request_patient($1)", [enc]))).rejects.toThrow(/Only doctors/)
+    await db.as(doctor, () => db.query("select public.request_patient($1)", [enc]))
+    const called = await one<{ status: string; called_by: string; called_at: string | null }>("select * from encounters where id = $1", [enc])
+    expect(called).toMatchObject({ status: "called", called_by: doctor })
+    const note = await one<{ type: string; data: { patient_name: string } }>(
+      "select type, data from notifications where recipient_id = $1 and entity_id = $2 and type = 'patient_requested'",
+      [reception, enc],
+    )
+    expect(note.data.patient_name).toBe("Sarah Ahmad")
+    await db.as(reception, () => db.query("select public.mark_patient_sent($1)", [enc]))
+    expect((await one<{ patient_sent_by: string }>("select patient_sent_by from encounters where id = $1", [enc])).patient_sent_by).toBe(reception)
+
+    // Doctor opens the visit (called → with doctor), adds ultrasound, finishes.
+    const visitId = await db.as(doctor, async () => (await one<{ id: string }>("select public.start_visit($1, 'gynecology', null, null, $2) as id", [p.id, enc])).id)
+    expect((await encounter(enc)).status).toBe("with_doctor")
+    const invId = (await invoiceOf(enc)).id
+    await db.as(doctor, () => db.query("select public.add_invoice_service($1, $2)", [invId, ultrasound]))
+    await db.as(doctor, () => db.query("update gynecology_visits set complaint = 'Pain' where visit_id = $1", [visitId]))
+    await db.as(doctor, () => db.query("select public.complete_visit($1)", [visitId]))
+    expect((await encounter(enc)).status).toBe("awaiting_checkout")
+    const bill = await one<{ data: { amount: string } }>("select data from notifications where recipient_id = $1 and entity_id = $2 and type = 'bill_ready'", [reception, enc])
+    expect(Number(bill.data.amount)).toBe(10 + 20 + 25)
+    await setPrepay(true)
+  })
+
+  it("never lets a document's stored file be swapped (metadata only)", async () => {
+    const p = await registerPatient("Doc Guard")
+    const d = await db.as(reception, () =>
+      one<{ id: string }>(
+        "insert into documents (patient_id, category, title, file_name, mime_type, size_bytes, storage_path, uploaded_by) values ($1, 'lab', 'Lab', 'lab.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 10, $2, $3) returning id",
+        [p.id, `${p.id}/${crypto.randomUUID()}.docx`, reception],
+      ),
+    )
+    await db.as(reception, () => db.query("update documents set title = 'Lab — CBC', tags = '{blood}', document_date = '2026-10-01' where id = $1", [d.id]))
+    await expect(db.as(reception, () => db.query("update documents set storage_path = 'x/y.pdf' where id = $1", [d.id]))).rejects.toThrow(/cannot be changed/)
+  })
+})

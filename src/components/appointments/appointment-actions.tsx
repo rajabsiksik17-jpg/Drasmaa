@@ -4,7 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
-import { BellRing, Wallet, CalendarClock, CircleSlash, FileDown, Loader2, LogIn, Mail, MessageCircle, MoreHorizontal, Play, Undo2, UserRound, XCircle } from "lucide-react"
+import { BellRing, DoorOpen, Info, Wallet, CalendarClock, CircleSlash, FileDown, Loader2, LogIn, Mail, MessageCircle, MoreHorizontal, Play, Undo2, UserRound, XCircle } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import {
@@ -25,6 +25,7 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { AppointmentDialog } from "@/components/appointments/appointment-dialog"
+import { AppointmentDetailSheet } from "@/components/appointments/appointment-detail-sheet"
 import { StartVisitDialog, appointmentTypeToVisit } from "@/components/visits/start-visit-dialog"
 import { MessageComposer, type ComposerChannel } from "@/components/messaging/message-composer"
 import { ExportDialog } from "@/components/documents/export-dialog"
@@ -51,6 +52,7 @@ export function AppointmentActions({ appointment, compact = false }: { appointme
   const [reason, setReason] = useState("")
   const [compose, setCompose] = useState<{ channel: ComposerChannel; purpose: string } | null>(null)
   const [exportOpen, setExportOpen] = useState(false)
+  const [detailOpen, setDetailOpen] = useState(false)
 
   const a = appointment
   const isDoctor = !!session.doctorId && can(P.visitsCreate)
@@ -129,6 +131,17 @@ export function AppointmentActions({ appointment, compact = false }: { appointme
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-52">
+          <DropdownMenuItem onSelect={() => setDetailOpen(true)}>
+            <Info />
+            {t("detail.open")}
+          </DropdownMenuItem>
+          {a.status === "scheduled" && can(P.appointmentsCheckin) && (
+            // The patient is here: checking in creates the real clinic visit (no duplicate).
+            <DropdownMenuItem onSelect={() => change("checked_in")}>
+              <DoorOpen />
+              {t("createVisit")}
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem asChild>
             <Link href={`/patients/${a.patient_id}`}>
               <UserRound />
@@ -207,6 +220,7 @@ export function AppointmentActions({ appointment, compact = false }: { appointme
           purpose={compose.purpose}
         />
       )}
+      {detailOpen && <AppointmentDetailSheet appointment={a} open onOpenChange={setDetailOpen} />}
       {exportOpen && (
         <ExportDialog open onOpenChange={setExportOpen} target={{ type: "appointment_summary", entityId: a.id, patientId: a.patient_id }} />
       )}

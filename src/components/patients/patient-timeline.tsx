@@ -27,7 +27,7 @@ import { formatDateTime } from "@/lib/dates"
 import { cn } from "@/lib/utils"
 import type { TimelineEvent } from "@/types/db"
 
-const ICONS: Record<TimelineEvent["event_type"], { icon: LucideIcon; tone: string }> = {
+export const TIMELINE_ICONS: Record<TimelineEvent["event_type"], { icon: LucideIcon; tone: string }> = {
   patient_created: { icon: UserPlus, tone: "bg-muted text-muted-foreground" },
   appointment: { icon: CalendarDays, tone: "bg-primary/10 text-primary" },
   checked_in: { icon: LogIn, tone: "bg-status-waiting/15 text-status-waiting" },
@@ -92,7 +92,7 @@ export function PatientTimeline({ patientId, events, compact = false }: { patien
     <ol className="relative space-y-1 ps-1">
       <span aria-hidden className="absolute inset-y-2 start-[19px] w-px bg-border" />
       {events.map((e, i) => {
-        const { icon: Icon, tone } = ICONS[e.event_type] ?? ICONS.document
+        const { icon: Icon, tone } = TIMELINE_ICONS[e.event_type] ?? TIMELINE_ICONS.document
         const sub = e.subtype ? t.has(`subtype.${e.subtype}`) ? t(`subtype.${e.subtype}`) : e.subtype : ""
         return (
           <motion.li

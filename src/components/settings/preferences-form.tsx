@@ -130,6 +130,10 @@ export function PreferencesForm({
             <Label htmlFor="n-rem">{t("notifyReminders")}</Label>
             <Switch id="n-rem" checked={prefs.notify_reminders !== false} onCheckedChange={(v) => save({ notify_reminders: v })} />
           </div>
+          <div className="flex items-center justify-between gap-3">
+            <Label htmlFor="n-sound">{t("soundAlerts")}</Label>
+            <Switch id="n-sound" checked={prefs.sound_alerts === true} onCheckedChange={(v) => save({ sound_alerts: v })} />
+          </div>
           <p className="text-xs text-muted-foreground">{t("notifyHint")}</p>
           {children}
         </div>

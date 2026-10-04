@@ -4,7 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
-import { ArrowUpRight, Loader2, Plus, Receipt, Save } from "lucide-react"
+import { ArrowUpRight, CheckCircle2, Loader2, Minus, Plus, Receipt, Save, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -13,7 +13,8 @@ import { useCan, useRefs } from "@/components/app-context"
 import { InvoiceStatusBadge, Money } from "@/components/accounting/money"
 import { useActionError } from "@/hooks/use-action-error"
 import { useSafeTransition } from "@/hooks/use-safe-transition"
-import { addInvoiceService, updateInvoice } from "@/lib/actions/accounting"
+import { addInvoiceService, updateInvoice, updateInvoiceLine } from "@/lib/actions/accounting"
+import { completeVisit } from "@/lib/actions/clinical"
 import { P } from "@/lib/permissions"
 import type { Invoice } from "@/types/db"
 
@@ -48,7 +49,17 @@ export type VisitBillInvoice = Pick<
  * doctor completes it here (extra services, discount within the role limit);
  * reception then collects it. Payments are never visible here.
  */
-export function VisitBill({ invoice, editable }: { invoice: VisitBillInvoice; editable: boolean }) {
+export function VisitBill({
+  invoice,
+  editable,
+  visitId,
+  visitOpen = false,
+}: {
+  invoice: VisitBillInvoice
+  editable: boolean
+  visitId?: string
+  visitOpen?: boolean
+}) {
   const t = useTranslations("accounting")
   const locale = useLocale()
   const can = useCan()
@@ -77,6 +88,23 @@ export function VisitBill({ invoice, editable }: { invoice: VisitBillInvoice; ed
       if (!res.ok) return showError(res.error)
       setServiceId("")
       toast.success(t("serviceAdded"))
+      router.refresh()
+    })
+
+  const changeLine = (lineId: string, patch: { quantity?: number; remove?: boolean }) =>
+    start(async () => {
+      const res = await updateInvoiceLine({ lineId, ...patch, reason: null })
+      if (!res.ok) return showError(res.error)
+      router.refresh()
+    })
+
+  // "Finish visit": completes the medical visit; the final bill then goes to reception (realtime).
+  const finish = () =>
+    start(async () => {
+      if (!visitId) return
+      const res = await completeVisit(visitId)
+      if (!res.ok) return showError(res.error)
+      toast.success(t("visitFinished"))
       router.refresh()
     })
 
@@ -125,7 +153,22 @@ export function VisitBill({ invoice, editable }: { invoice: VisitBillInvoice; ed
                 {l.quantity > 1 && <span className="text-muted-foreground"> × {l.quantity}</span>}
                 {l.source && l.source !== "manual" && <span className="ms-2 rounded bg-muted px-1.5 text-[10px] text-muted-foreground">{t(`sources.${l.source}`)}</span>}
               </span>
-              <Money value={l.line_total} currency={c} />
+              <span className="flex shrink-0 items-center gap-1">
+                {canCharge && !paid && l.id && l.source !== "registration" && (
+                  <>
+                    <Button size="icon-xs" variant="ghost" aria-label={t("decrease")} disabled={pending || l.quantity <= 1} onClick={() => changeLine(l.id!, { quantity: l.quantity - 1 })}>
+                      <Minus />
+                    </Button>
+                    <Button size="icon-xs" variant="ghost" aria-label={t("increase")} disabled={pending || l.quantity >= 100} onClick={() => changeLine(l.id!, { quantity: l.quantity + 1 })}>
+                      <Plus />
+                    </Button>
+                    <Button size="icon-xs" variant="ghost" className="text-destructive" aria-label={t("remove")} disabled={pending} onClick={() => changeLine(l.id!, { remove: true })}>
+                      <Trash2 />
+                    </Button>
+                  </>
+                )}
+                <Money value={l.line_total} currency={c} />
+              </span>
             </li>
           ))}
         {invoice.lines.length === 0 && <li className="py-3 text-center text-muted-foreground">{t("noLines")}</li>}
@@ -164,6 +207,16 @@ export function VisitBill({ invoice, editable }: { invoice: VisitBillInvoice; ed
           <Button variant="secondary" onClick={saveDiscount} disabled={pending || (Number(discount.value) > 0 && discount.reason.trim().length < 3)}>
             <Save />
             {t("saveDiscount")}
+          </Button>
+        </div>
+      )}
+
+      {visitId && visitOpen && can(P.visitsComplete) && (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-primary/5 p-3">
+          <p className="text-xs text-muted-foreground">{refs.settings.collect_payment_before_consultation ? t("finishHintPrepay") : t("finishHintPostpay")}</p>
+          <Button onClick={finish} disabled={pending}>
+            {pending ? <Loader2 className="animate-spin" /> : <CheckCircle2 />}
+            {t("finishVisit")}
           </Button>
         </div>
       )}

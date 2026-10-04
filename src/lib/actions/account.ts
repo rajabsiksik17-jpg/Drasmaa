@@ -32,6 +32,7 @@ const prefsSchema = z.object({
   dashboard: z.enum(["default", "queue_first"]).optional(),
   notify_checkin: z.boolean().optional(),
   notify_reminders: z.boolean().optional(),
+  sound_alerts: z.boolean().optional(),
 })
 
 export async function updatePreferences(patch: z.input<typeof prefsSchema>): Promise<ActionResult> {

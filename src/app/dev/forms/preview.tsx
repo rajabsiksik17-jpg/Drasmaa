@@ -12,16 +12,19 @@ import { PatientHeader } from "@/components/patients/patient-header"
 import { QueueBoard } from "@/components/encounters/queue-board"
 import { DrawingEditor } from "@/components/drawings/drawing-editor"
 import { P } from "@/lib/permissions"
-import { cycle, history, patientCtx, pregnancy, queue, refs } from "./fixtures"
+import { DashboardQuickActions } from "@/components/dashboard/quick-actions"
+import { UnifiedTimeline } from "@/components/patients/unified-timeline"
+import { UploadDialog } from "@/components/documents/upload-dialog"
+import { cycle, history, patientCtx, pregnancy, queue, refs, timeline } from "./fixtures"
 
-const FORMS = ["history", "pregnancy", "oi", "drawing", "consent", "header", "queue", "editor"] as const
+const FORMS = ["history", "pregnancy", "oi", "drawing", "consent", "header", "queue", "editor", "quick", "timeline", "upload"] as const
 // Front-desk + doctor + billing rights, to show every action of the new screens.
 const PREVIEW_PERMISSIONS = Object.values(P)
 
 export function FormsPreview({ form }: { form: string }) {
   return (
     <AppProvider
-      session={{ userId: "dev", email: null, fullName: "Preview", roleCode: null, roleNameEn: null, roleNameAr: null, permissions: ["header", "queue", "editor"].includes(form) ? PREVIEW_PERMISSIONS : [], doctorId: null, preferences: {} }}
+      session={{ userId: "dev", email: null, fullName: "Preview", roleCode: null, roleNameEn: null, roleNameAr: null, permissions: ["header", "queue", "editor", "quick", "timeline", "upload"].includes(form) ? PREVIEW_PERMISSIONS : [], doctorId: null, preferences: {} }}
       refs={refs}
     >
       <FormSaveProvider guard={false}>
@@ -66,6 +69,17 @@ export function FormsPreview({ form }: { form: string }) {
               <QueueBoard rows={queue} prepay />
             </div>
           )}
+          {form === "quick" && (
+            <div className="mx-auto max-w-5xl">
+              <DashboardQuickActions />
+            </div>
+          )}
+          {form === "timeline" && (
+            <div className="mx-auto max-w-3xl rounded-xl border bg-card p-4">
+              <UnifiedTimeline patientId="dev" events={timeline} people={{}} />
+            </div>
+          )}
+          {form === "upload" && <UploadDialog open onOpenChange={() => undefined} links={{ patientId: "dev", visitId: "dev-visit" }} />}
           {form === "editor" && (
             <div className="mx-auto max-w-4xl bg-background p-3">
               <DrawingEditor

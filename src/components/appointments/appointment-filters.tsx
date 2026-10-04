@@ -139,3 +139,40 @@ export function Pager({ page, pageSize, total }: { page: number; pageSize: numbe
     </div>
   )
 }
+
+export const DAY_VIEWS = ["all", "appointments", "visits", "waiting", "with_doctor", "completed"] as const
+export type DayView = (typeof DAY_VIEWS)[number]
+
+/** Views of the clinic day (filters of one page, not separate pages). */
+export function DayViewChips({ current, counts }: { current: DayView; counts: Record<DayView, number> }) {
+  const t = useTranslations("appointments.views")
+  const params = useSearchParams()
+  return (
+    <div className="no-print -mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0" role="tablist" aria-label={t("label")}>
+      {DAY_VIEWS.map((v) => {
+        const next = new URLSearchParams(params)
+        next.set("tab", "today")
+        if (v === "all") next.delete("view")
+        else next.set("view", v)
+        next.delete("page")
+        const active = current === v
+        return (
+          <Link
+            key={v}
+            role="tab"
+            aria-selected={active}
+            href={`?${next.toString()}`}
+            scroll={false}
+            className={cn(
+              "flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors",
+              active ? "border-primary bg-primary text-primary-foreground" : "bg-card hover:bg-muted",
+            )}
+          >
+            {t(v)}
+            <span className={cn("rounded-full px-1.5 text-xs tabular-nums", active ? "bg-primary-foreground/20" : "bg-muted")}>{counts[v]}</span>
+          </Link>
+        )
+      })}
+    </div>
+  )
+}

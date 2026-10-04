@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
-import { DoorOpen, Loader2 } from "lucide-react"
+import Link from "next/link"
+import { CheckCircle2, DoorOpen, Loader2, UserPlus, UserRound, Wallet } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -17,6 +18,7 @@ import { useActionError } from "@/hooks/use-action-error"
 import { useSafeTransition } from "@/hooks/use-safe-transition"
 import { createEncounter, getWalkInDefaults, type WalkInDefaults } from "@/lib/actions/encounters"
 import { P } from "@/lib/permissions"
+import { formatTime } from "@/lib/dates"
 
 /**
  * "Create visit now": the patient is here (walk-in or without booking). No
@@ -46,6 +48,7 @@ export function WalkInDialog({
   const [patient, setPatient] = useState<PickedPatient | null>(fixedPatient ?? null)
   const [defaults, setDefaults] = useState<WalkInDefaults | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [created, setCreated] = useState<{ id: string; invoiceId: string | null; arrivedAt: string | null } | null>(null)
   const [v, setV] = useState({
     doctorId: session.doctorId ?? "",
     serviceId: "",
@@ -106,15 +109,10 @@ export function WalkInDialog({
         noCharge: v.noCharge,
       })
       if (!res.ok) return setError(message(res.error, "createVisit"))
-      onOpenChange(false)
-      const prepay = refs.settings.collect_payment_before_consultation
-      if (prepay && res.data.invoiceId && total > 0 && can(P.accountingCreate)) {
-        toast.success(t("createdCollect"))
-        router.push(`/accounting/invoices/${res.data.invoiceId}`)
-      } else {
-        toast.success(t("created"))
-        router.refresh()
-      }
+      // Stay in the flow: confirm with the server time, then offer the next step.
+      setCreated(res.data)
+      toast.success(t("created"))
+      router.refresh()
     })
 
   return (
@@ -128,6 +126,33 @@ export function WalkInDialog({
           <DialogDescription>{refs.settings.collect_payment_before_consultation ? t("createNowHintPrepay") : t("createNowHintPostpay")}</DialogDescription>
         </DialogHeader>
 
+        {created ? (
+          <div className="grid content-start gap-4 py-2 text-center">
+            <CheckCircle2 className="mx-auto size-12 text-success" />
+            <p className="text-lg font-semibold">
+              {created.arrivedAt ? t("createdAt", { time: formatTime(created.arrivedAt, locale) }) : t("created")}
+            </p>
+            <p className="text-sm text-muted-foreground">{patient?.full_name}</p>
+            <div className="flex flex-wrap justify-center gap-2">
+              {patient && (
+                <Button variant="outline" asChild>
+                  <Link href={`/patients/${patient.id}`} onClick={() => onOpenChange(false)}>
+                    <UserRound />
+                    {t("openPatient")}
+                  </Link>
+                </Button>
+              )}
+              {created.invoiceId && can(P.accountingView) && (
+                <Button asChild>
+                  <Link href={`/accounting/invoices/${created.invoiceId}`} onClick={() => onOpenChange(false)}>
+                    <Wallet />
+                    {refs.settings.collect_payment_before_consultation && total > 0 ? t("collectNow") : t("openBill")}
+                  </Link>
+                </Button>
+              )}
+            </div>
+          </div>
+        ) : (
         <div className="grid content-start gap-4">
           <div className="grid gap-1.5">
             <Label>{ta("patient")}</Label>
@@ -136,7 +161,20 @@ export function WalkInDialog({
                 {fixedPatient.full_name} · <span className="text-muted-foreground">{fixedPatient.patient_code}</span>
               </div>
             ) : (
-              <PatientPicker value={patient} onChange={(p) => { setPatient(p); setDefaults(null) }} />
+              <div className="flex gap-2">
+                <div className="min-w-0 flex-1">
+                  <PatientPicker value={patient} onChange={(p) => { setPatient(p); setDefaults(null) }} />
+                </div>
+                {can(P.patientsCreate) && (
+                  // New patient: registration continues straight into the first visit.
+                  <Button variant="outline" asChild>
+                    <Link href="/patients/new" onClick={() => onOpenChange(false)}>
+                      <UserPlus />
+                      <span className="max-sm:sr-only">{t("newPatient")}</span>
+                    </Link>
+                  </Button>
+                )}
+              </div>
             )}
             {defaults?.open_encounter_id && <p className="text-xs text-amber-700 dark:text-amber-300">{t("alreadyHere")}</p>}
           </div>
@@ -221,15 +259,18 @@ export function WalkInDialog({
 
           {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
         </div>
+        )}
 
         <DialogFooter className="max-sm:sticky max-sm:bottom-0 max-sm:bg-background max-sm:py-3">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            {tc("cancel")}
+            {created ? tc("close") : tc("cancel")}
           </Button>
-          <Button onClick={submit} disabled={pending || !patient || needsDoctor || (v.paymentMethod === "insurance" && !v.insuranceCompanyId)}>
-            {pending ? <Loader2 className="animate-spin" /> : <DoorOpen />}
-            {t("create")}
-          </Button>
+          {!created && (
+            <Button onClick={submit} disabled={pending || !patient || needsDoctor || (v.paymentMethod === "insurance" && !v.insuranceCompanyId)}>
+              {pending ? <Loader2 className="animate-spin" /> : <DoorOpen />}
+              {t("create")}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

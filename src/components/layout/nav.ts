@@ -1,7 +1,6 @@
 import {
   Bell,
   Calculator,
-  ClipboardList,
   Wallet,
   FileSignature,
   Pill,
@@ -15,7 +14,6 @@ import {
   ShieldCheck,
   BellRing,
   Building2,
-  CalendarClock,
   CalendarDays,
   KeyRound,
   LayoutDashboard,
@@ -44,10 +42,8 @@ export interface NavItem {
 
 export const MAIN_NAV: NavItem[] = [
   { href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard },
-  { href: "/today", labelKey: "today", icon: ClipboardList, permissions: [P.encountersCreate, P.visitsCreate, P.accountingCreate] },
   { href: "/patients", labelKey: "patients", icon: Users, permissions: [P.patientsView] },
   { href: "/appointments", labelKey: "appointments", icon: CalendarDays, permissions: [P.appointmentsView], exact: true },
-  { href: "/appointments?tab=tomorrow", labelKey: "tomorrow", icon: CalendarClock, permissions: [P.appointmentsView] },
   { href: "/reports", labelKey: "reports", icon: FileSignature, permissions: [P.reportsView] },
   { href: "/accounting", labelKey: "accounting", icon: Calculator, permissions: [P.accountingView] },
   { href: "/notifications", labelKey: "notifications", icon: Bell },

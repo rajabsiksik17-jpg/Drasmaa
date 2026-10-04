@@ -3,7 +3,7 @@ import en from "../../messages/en.json"
 import ar from "../../messages/ar.json"
 
 import { missingKeys } from "../../scripts/i18n-keys.mjs"
-import { NOTIFICATION_TYPES } from "@/types/db"
+import { DOCUMENT_CATEGORIES, NOTIFICATION_TYPES } from "@/types/db"
 import { DOCUMENT_TYPES, SUMMARY_SECTIONS } from "@/lib/documents/registry"
 import { TEMPLATE_VARIABLES } from "@/lib/messaging/templates"
 import { ACCOUNTING_REPORTS } from "@/lib/accounting/report-kinds"
@@ -79,6 +79,14 @@ describe("translations", () => {
       "pricing.categories.registration",
       "pricing.triggers.registration",
       "drawings.tools.select",
+      "encounters.status.called",
+      ...["all", "appointments", "visits", "waiting", "with_doctor", "completed"].map((k) => `appointments.views.${k}`),
+      ...["inClinic", "waiting", "with_doctor", "completed"].map((k) => `appointments.viewEmpty.${k}`),
+      ...["all", "visits", "appointments", "cases", "files", "clinical", "billing"].map((k) => `timeline.filters.${k}`),
+      ...["patient_created", "appointment", "checked_in", "visit", "fertility_case", "pregnancy_case", "oi_cycle_started", "oi_cycle_completed", "document", "drawing", "prescription", "medical_report", "invoice", "payment", "generated_document", "clinic_visit", "checked_out"].map((k) => `timeline.kind.${k}`),
+      ...DOCUMENT_CATEGORIES.map((k) => `documents.categories.${k}`),
+      ...["visit", "patient"].map((k) => `documents.level.${k}`),
+      ...["markSent", "markedSent", "openPayment"].map((k) => `notifications.actions.${k}`),
       ...["email", "notificationSettings", "templates", "whatsapp", "documentTemplates", "securityCenter", "authentication", "sessions"].map((k) => `nav.${k}`),
       ...["clinic", "communication", "security"].map((k) => `nav.group.${k}`),
       ...["not_configured", "encryption_key_missing", "connection_failed", "tls_failed", "auth_failed", "recipient_rejected", "send_failed", "timeout"].map((k) => `emailSettings.errorCodes.${k}`),

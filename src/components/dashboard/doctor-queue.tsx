@@ -4,7 +4,12 @@ import { useState } from "react"
 import Link from "next/link"
 import { useLocale, useTranslations } from "next-intl"
 import { AnimatePresence, motion } from "motion/react"
-import { Hourglass, Play, Stethoscope, UserRound } from "lucide-react"
+import { BellRing, Hourglass, Loader2, Play, Stethoscope, UserRound } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { toast } from "sonner"
+import { useActionError } from "@/hooks/use-action-error"
+import { useSafeTransition } from "@/hooks/use-safe-transition"
+import { requestPatient } from "@/lib/actions/encounters"
 import { Button } from "@/components/ui/button"
 import { StartVisitDialog } from "@/components/visits/start-visit-dialog"
 import { useRefs } from "@/components/app-context"
@@ -26,6 +31,16 @@ function QueueItem({ e, index, onStart }: { e: QueueEncounter; index: number; on
   const refs = useRefs()
   const waited = useMinutesSince(e.sent_to_doctor_at ?? e.arrived_at)
   const service = refs.services.find((s) => s.id === e.service_id)
+  const router = useRouter()
+  const { showError } = useActionError()
+  const [calling, start] = useSafeTransition()
+  const call = () =>
+    start(async () => {
+      const res = await requestPatient(e.id)
+      if (!res.ok) return showError(res.error)
+      toast.success(te("requested"))
+      router.refresh()
+    })
   return (
     <motion.li
       layout="position"
@@ -50,6 +65,17 @@ function QueueItem({ e, index, onStart }: { e: QueueEncounter; index: number; on
         </p>
       </div>
       <span className="hidden text-xs whitespace-nowrap text-muted-foreground sm:inline">{waited != null && t("waitingFor", { minutes: waited })}</span>
+      {e.status === "called" ? (
+        <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/12 px-2 py-1 text-xs font-medium whitespace-nowrap text-violet-700 dark:text-violet-300">
+          <BellRing className="size-3 motion-safe:animate-pulse" />
+          {e.patient_sent_at ? te("patientSent") : te("doctorRequested")}
+        </span>
+      ) : (
+        <Button size="sm" variant="secondary" onClick={call} disabled={calling}>
+          {calling ? <Loader2 className="animate-spin" /> : <BellRing />}
+          <span className="sr-only sm:not-sr-only">{te("callPatient")}</span>
+        </Button>
+      )}
       <Button size="sm" variant="outline" asChild>
         <Link href={`/patients/${e.patient_id}`}>
           <UserRound />

@@ -13,6 +13,8 @@ import { VisitExtras } from "@/components/visits/visit-extras"
 import type { PrescriptionWithItems } from "@/components/prescriptions/prescription-editor"
 import type { VisitBillInvoice } from "@/components/accounting/visit-bill"
 import { loadDrawings } from "@/lib/data/drawings"
+import { VisitQuickActions } from "@/components/visits/visit-quick-actions"
+import type { EncounterStatus, PatientDocument } from "@/types/db"
 import type { TimelineEvent } from "@/types/db"
 
 export async function generateMetadata({ params }: PageProps<"/patients/[patientId]/visits/[visitId]">): Promise<Metadata> {
@@ -46,7 +48,7 @@ export default async function VisitPage({ params }: PageProps<"/patients/[patien
     ...(bundle.visit.appointment_id ? [`appointment_id.eq.${bundle.visit.appointment_id}`] : []),
     ...(bundle.visit.encounter_id ? [`encounter_id.eq.${bundle.visit.encounter_id}`] : []),
   ].join(",")
-  const [drawings, archivedDrawings, prescriptions, invoice] = await Promise.all([
+  const [drawings, archivedDrawings, prescriptions, invoice, visitDocs, encounter] = await Promise.all([
     can(P.drawingsView) ? loadDrawings({ visitId }) : Promise.resolve([]),
     can(P.drawingsEdit) ? loadDrawings({ visitId, status: "archived" }) : Promise.resolve([]),
     can(P.prescriptionsView)
@@ -64,12 +66,22 @@ export default async function VisitPage({ params }: PageProps<"/patients/[patien
           .maybeSingle()
           .then((r) => (r.data as VisitBillInvoice | null) ?? null)
       : Promise.resolve(null),
+    can(P.documentsView)
+      ? supabase.from("documents").select("*").eq("visit_id", visitId).eq("status", "active").order("uploaded_at", { ascending: false }).then((r) => (r.data ?? []) as PatientDocument[])
+      : Promise.resolve([] as PatientDocument[]),
+    bundle.visit.encounter_id
+      ? supabase.from("encounters").select("status, prepay").eq("id", bundle.visit.encounter_id).maybeSingle().then((r) => (r.data as { status: EncounterStatus; prepay: boolean } | null) ?? null)
+      : Promise.resolve(null),
   ])
+  const uploaderIds = [...new Set(visitDocs.map((d) => d.uploaded_by).filter((x): x is string => !!x))]
+  const { data: uploaders } = uploaderIds.length ? await supabase.from("profiles").select("id, full_name").in("id", uploaderIds) : { data: [] }
+  const people = Object.fromEntries((uploaders ?? []).map((p) => [p.id as string, p.full_name as string]))
   const vs = bundle.visit
   const context: "pregnancy" | "fertility" | "gynecology" = vs.visit_type === "pregnancy" ? "pregnancy" : vs.visit_type === "fertility" ? "fertility" : "gynecology"
   const extraSections = [
     ...(can(P.drawingsView) ? [{ id: "vx-imaging", label: t("sec.imaging") }] : []),
     ...(can(P.prescriptionsView) ? [{ id: "vx-rx", label: t("sec.prescription") }] : []),
+    ...(can(P.documentsView) ? [{ id: "vx-files", label: t("sec.attachments") }] : []),
     ...(invoice ? [{ id: "vx-billing", label: t("sec.billing") }] : []),
   ]
   const extras = (
@@ -82,6 +94,7 @@ export default async function VisitPage({ params }: PageProps<"/patients/[patien
       archivedDrawings={archivedDrawings}
       prescriptions={prescriptions}
       invoice={invoice}
+      attachments={can(P.documentsView) ? { documents: visitDocs, people } : null}
       show={{ imaging: can(P.drawingsView), prescriptions: can(P.prescriptionsView) }}
     />
   )
@@ -116,6 +129,16 @@ export default async function VisitPage({ params }: PageProps<"/patients/[patien
         }}
         extras={extras}
         extraSections={extraSections}
+        headerExtra={
+          <VisitQuickActions
+            patientId={patientId}
+            visitId={visitId}
+            startedAt={vs.started_at}
+            encounter={encounter}
+            invoice={invoice ? { status: invoice.status } : null}
+            open={vs.status === "draft" || vs.status === "in_progress"}
+          />
+        }
       />
     </div>
   )

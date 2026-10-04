@@ -83,6 +83,10 @@ describe("upload validation", () => {
     expect(checkFile({ name: "evil.exe", type: "application/pdf", size: 1000 })).toEqual({ ok: false, code: "fileType" })
     expect(checkFile({ name: "a.pdf", type: "application/x-msdownload", size: 1000 })).toEqual({ ok: false, code: "fileType" })
     expect(checkFile({ name: "big.pdf", type: "application/pdf", size: 21 * 1024 * 1024 }, 20)).toEqual({ ok: false, code: "fileTooLarge" })
+    // Office files: allowed; a missing / generic browser type is inferred from the extension only.
+    expect(checkFile({ name: "lab.docx", type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", size: 1000 })).toEqual({ ok: true, ext: "docx" })
+    expect(checkFile({ name: "results.xlsx", type: "", size: 1000 })).toEqual({ ok: true, ext: "xlsx" })
+    expect(checkFile({ name: "macro.xlsm", type: "", size: 1000 })).toEqual({ ok: false, code: "fileType" })
   })
 })
 

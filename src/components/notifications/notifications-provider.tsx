@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useMemo, useState } from "react
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { markAllNotificationsRead, markNotificationRead } from "@/lib/actions/account"
+import { markPatientSent } from "@/lib/actions/encounters"
 import { useRealtime } from "@/lib/realtime/use-realtime"
 import { useNotificationText } from "@/components/notifications/notification-text"
 import { useSession } from "@/components/app-context"
@@ -36,6 +37,32 @@ export function hrefFor(n: AppNotification) {
   return `/patients/${patient}?tab=appointments`
 }
 
+// Queue events that deserve an action button right in the toast.
+const QUEUE_TYPES = new Set(["patient_requested", "bill_ready", "patient_checked_in"])
+
+/** Short, soft two-tone chime (Web Audio; no file to download). */
+function chime() {
+  try {
+    const Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+    if (!Ctor) return
+    const ctx = new Ctor()
+    for (const [i, freq] of [880, 1320].entries()) {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.frequency.value = freq
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime + i * 0.16)
+      gain.gain.exponentialRampToValueAtTime(0.12, ctx.currentTime + i * 0.16 + 0.02)
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + i * 0.16 + 0.3)
+      osc.connect(gain).connect(ctx.destination)
+      osc.start(ctx.currentTime + i * 0.16)
+      osc.stop(ctx.currentTime + i * 0.16 + 0.32)
+    }
+    setTimeout(() => void ctx.close(), 900)
+  } catch (error) {
+    console.warn("[alerts] sound unavailable", error)
+  }
+}
+
 export function NotificationsProvider({
   initial,
   userId,
@@ -65,12 +92,41 @@ export function NotificationsProvider({
           (row.type === "appointment_reminder" && prefs.notify_reminders === false)
         if (!muted) {
           const { title, body } = text(row)
-          const show = row.priority === "critical" ? toast.error : row.priority === "high" ? toast.warning : toast.info
-          show(title, {
-            description: body,
-            duration: row.priority === "critical" ? 15_000 : undefined,
-            action: { label: "→", onClick: () => router.push(hrefFor(row)) },
-          })
+          if (QUEUE_TYPES.has(row.type) && prefs.sound_alerts === true) chime()
+          const encounterId = row.entity_type === "encounter" ? row.entity_id : null
+          const invoiceId = typeof row.data?.invoice_id === "string" ? row.data.invoice_id : null
+          if (row.type === "patient_requested" && encounterId) {
+            // Reception: one tap to confirm the patient is on the way.
+            toast(title, {
+              description: body,
+              duration: 30_000,
+              icon: "🔔",
+              action: {
+                label: text.label("markSent"),
+                onClick: () =>
+                  void markPatientSent(encounterId).then((res) => {
+                    if (res.ok) toast.success(text.label("markedSent"))
+                    router.refresh()
+                  }),
+              },
+            })
+          } else if (row.type === "bill_ready") {
+            toast(title, {
+              description: body,
+              duration: 30_000,
+              icon: "💳",
+              action: { label: text.label("openPayment"), onClick: () => router.push(invoiceId ? `/accounting/invoices/${invoiceId}` : hrefFor(row)) },
+            })
+          } else {
+            const show = row.priority === "critical" ? toast.error : row.priority === "high" ? toast.warning : toast.info
+            show(title, {
+              description: body,
+              duration: row.priority === "critical" ? 15_000 : undefined,
+              action: { label: "→", onClick: () => router.push(hrefFor(row)) },
+            })
+          }
+          // Queue changes: refresh the visible lists (targeted server re-render, no reload).
+          if (QUEUE_TYPES.has(row.type)) router.refresh()
         }
       } else if (payload.eventType === "UPDATE" && row?.id) {
         setItems((prev) =>

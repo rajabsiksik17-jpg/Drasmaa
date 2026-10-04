@@ -10,8 +10,9 @@ import {
   HeartPulse,
   Hourglass,
   Stethoscope,
-  UserPlus,
   Users,
+  Wallet,
+  BellRing,
 } from "lucide-react"
 import { requireSession, hasPermission } from "@/lib/auth/session"
 import { dayWindow, getAppointmentCounts, getAppointments } from "@/lib/data/appointments"
@@ -23,6 +24,9 @@ import { PageHeader, SectionCard, StatCard, EmptyState } from "@/components/comm
 import { AppointmentList } from "@/components/appointments/appointment-list"
 import { NewAppointmentButton } from "@/components/appointments/new-appointment-button"
 import { DoctorQueue } from "@/components/dashboard/doctor-queue"
+import { DashboardQuickActions } from "@/components/dashboard/quick-actions"
+import { EncounterCards } from "@/components/encounters/queue-board"
+import type { QueueEncounter } from "@/lib/data/encounters"
 import { RealtimeRefresh } from "@/components/realtime-refresh"
 import { Button } from "@/components/ui/button"
 
@@ -75,9 +79,16 @@ export default async function DashboardPage() {
   const queue = todayList.rows
     .filter((a) => a.status === "checked_in")
     .sort((a, b) => (a.checked_in_at ?? "").localeCompare(b.checked_in_at ?? ""))
-  // The doctor's queue is made of today's real clinic visits (walk-ins
-  // included), not of appointments.
-  const doctorQueue = isDoctor ? (await getTodayQueue({ doctorId: session.doctor!.id, statuses: ["waiting_doctor", "with_doctor"] })).rows : []
+  // Today's real clinic visits (walk-ins included) — one selective query,
+  // shared by the control-center cards, the doctor queue and reception panels.
+  const seesClinic = can(P.encountersCreate) || can(P.visitsCreate) || can(P.accountingView)
+  const clinic: QueueEncounter[] = seesClinic ? (await getTodayQueue({ doctorId: isDoctor && !isFrontDesk ? session.doctor!.id : null })).rows : []
+  const doctorQueue = isDoctor ? clinic.filter((e) => !e.doctor_id || e.doctor_id === session.doctor!.id) : []
+  const of = (...st: string[]) => clinic.filter((e) => st.includes(e.status))
+  const unpaid = (e: QueueEncounter) => (e.invoices[0] ? Number(e.invoices[0].balance_patient) > 0.0005 : false)
+  const paymentDue = clinic.filter((e) => e.status === "waiting_payment" || (e.status === "awaiting_checkout" && unpaid(e)))
+  const requests = of("called").filter((e) => !e.patient_sent_at)
+  const view = (v: string) => `/appointments?tab=today&view=${v}`
   const firstName = session.profile.full_name.split(" ")[0]
 
   return (
@@ -87,42 +98,55 @@ export default async function DashboardPage() {
           channel="dashboard"
           specs={[
             { table: "appointments", filter: doctorScope ? `doctor_id=eq.${doctorScope}` : undefined },
-            ...(isDoctor ? [{ table: "encounters", filter: `queue_date=eq.${clinicToday()}` }] : []),
+            ...(seesClinic ? [{ table: "encounters", filter: `queue_date=eq.${clinicToday()}` }] : []),
           ]}
         />
       )}
       <PageHeader
         title={t("greeting", { name: firstName })}
         description={formatDateLong(clinicToday(), locale)}
-        actions={
-          <>
-            {can(P.patientsCreate) && (
-              <Button variant="outline" asChild>
-                <Link href="/patients/new">
-                  <UserPlus />
-                  {t("newPatient")}
-                </Link>
-              </Button>
-            )}
-            <NewAppointmentButton />
-          </>
-        }
       />
 
-      {counts && (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-          <StatCard label={t("today")} value={counts.today_total} icon={CalendarDays} href="/appointments?tab=today" />
-          <StatCard label={t("waiting")} value={counts.waiting} icon={Hourglass} tone="waiting" />
-          <StatCard label={t("withDoctor")} value={counts.with_doctor} icon={Stethoscope} tone="doctor" />
-          <StatCard label={t("completed")} value={counts.completed} icon={CheckCircle2} tone="done" />
-          <StatCard label={t("tomorrow")} value={counts.tomorrow} icon={CalendarClock} tone="muted" href="/appointments?tab=tomorrow" />
+      <DashboardQuickActions />
+
+      {(counts || seesClinic) && (
+        <section aria-label={t("todayCards")} className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+          {counts && <StatCard label={t("today")} value={counts.today_total} icon={CalendarDays} href={view("appointments")} />}
+          {seesClinic && (
+            <>
+              <StatCard label={t("inClinic")} value={of("waiting_payment", "waiting_doctor", "called", "with_doctor", "awaiting_checkout").length} icon={Users} href={view("visits")} />
+              <StatCard label={t("waiting")} value={of("waiting_doctor", "called").length} icon={Hourglass} tone="waiting" href={view("waiting")} />
+              <StatCard label={t("withDoctor")} value={of("with_doctor").length} icon={Stethoscope} tone="doctor" href={view("with_doctor")} />
+              <StatCard label={t("waitingPayment")} value={paymentDue.length} icon={Wallet} tone="muted" href={view("waiting")} />
+              <StatCard label={t("completed")} value={of("checked_out").length} icon={CheckCircle2} tone="done" href={view("completed")} />
+            </>
+          )}
+          {counts && !seesClinic && (
+            <StatCard label={t("tomorrow")} value={counts.tomorrow} icon={CalendarClock} tone="muted" href="/appointments?tab=tomorrow" />
+          )}
+        </section>
+      )}
+
+      {/* Reception: doctor requests and bills to collect, live. */}
+      {!isDoctor && seesClinic && (requests.length > 0 || paymentDue.length > 0) && (
+        <div className="grid gap-4 lg:grid-cols-2">
+          {requests.length > 0 && (
+            <SectionCard title={t("doctorRequests")} icon={BellRing} bodyClassName="p-3" className="border-violet-500/40">
+              <EncounterCards rows={requests} empty="" />
+            </SectionCard>
+          )}
+          {paymentDue.length > 0 && (
+            <SectionCard title={t("paymentsDue")} icon={Wallet} bodyClassName="p-3">
+              <EncounterCards rows={paymentDue} empty="" />
+            </SectionCard>
+          )}
         </div>
       )}
 
       {isDoctor ? (
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
           <div className="space-y-6">
-            <DoctorQueue waiting={doctorQueue.filter((e) => e.status === "waiting_doctor")} current={doctorQueue.filter((e) => e.status === "with_doctor")} />
+            <DoctorQueue waiting={doctorQueue.filter((e) => e.status === "waiting_doctor" || e.status === "called")} current={doctorQueue.filter((e) => e.status === "with_doctor")} />
             <SectionCard title={t("todaySchedule")} icon={CalendarCheck2} bodyClassName="p-0 md:p-0">
               <div className="p-3">
                 <AppointmentList rows={todayList.rows} hideDoctor={!!doctorScope} emptyTitle={t("noToday")} />
@@ -185,7 +209,10 @@ export default async function DashboardPage() {
           icon={CalendarCheck2}
           actions={
             <Button variant="ghost" size="sm" asChild>
-              <Link href="/appointments?tab=tomorrow">{t("viewTomorrow")}</Link>
+              <Link href="/appointments?tab=tomorrow">
+                {t("viewTomorrow")}
+                {counts ? ` (${counts.tomorrow})` : ""}
+              </Link>
             </Button>
           }
           bodyClassName="p-3"

@@ -4,7 +4,7 @@ import { memo, useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
-import { Ban, DoorOpen, Play, Plus, Receipt, Stethoscope, UserRound, Users, Wallet } from "lucide-react"
+import { BellRing, Ban, CheckCheck, DoorOpen, Play, Plus, Receipt, Stethoscope, UserRound, Users, Wallet } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { useCan, useRefs, useSession } from "@/components/app-context"
@@ -16,7 +16,7 @@ import { Money } from "@/components/accounting/money"
 import { useNow } from "@/hooks/use-hydration"
 import { useActionError } from "@/hooks/use-action-error"
 import { useSafeTransition } from "@/hooks/use-safe-transition"
-import { setEncounterStatus } from "@/lib/actions/encounters"
+import { markPatientSent, requestPatient, setEncounterStatus } from "@/lib/actions/encounters"
 import { ageFromDob, formatTime } from "@/lib/dates"
 import { P } from "@/lib/permissions"
 import { cn } from "@/lib/utils"
@@ -27,6 +27,7 @@ type Lane = "payment" | "doctor" | "with_doctor" | "checkout" | "done"
 const LANE_OF: Record<EncounterStatus, Lane> = {
   waiting_payment: "payment",
   waiting_doctor: "doctor",
+  called: "doctor",
   with_doctor: "with_doctor",
   awaiting_checkout: "checkout",
   checked_out: "done",
@@ -125,7 +126,19 @@ function LaneList({ rows, empty, compact }: { rows: QueueEncounter[]; empty: str
   )
 }
 
-const QueueCard = memo(function QueueCard({ row, index, compact }: { row: QueueEncounter; index: number; compact?: boolean }) {
+/** Clinic-visit cards in a responsive grid (filtered views of the Appointments page). */
+export function EncounterCards({ rows, empty }: { rows: QueueEncounter[]; empty: string }) {
+  if (rows.length === 0) return <p className="rounded-lg border border-dashed px-3 py-8 text-center text-sm text-muted-foreground">{empty}</p>
+  return (
+    <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+      {rows.map((r, i) => (
+        <QueueCard key={r.id} row={r} index={i} />
+      ))}
+    </ul>
+  )
+}
+
+export const QueueCard = memo(function QueueCard({ row, index, compact }: { row: QueueEncounter; index: number; compact?: boolean }) {
   const t = useTranslations("encounters")
   const locale = useLocale()
   const refs = useRefs()
@@ -141,6 +154,22 @@ const QueueCard = memo(function QueueCard({ row, index, compact }: { row: QueueE
   const balance = invoice ? Number(invoice.balance_patient) : 0
   const waited = now != null ? Math.max(0, Math.round((now - new Date(row.arrived_at).getTime()) / 60_000)) : null
   const age = ageFromDob(row.patient?.dob)
+  const session = useSession()
+  const mineToCall = can(P.visitsCreate) && (!row.doctor_id || row.doctor_id === session.doctorId || can(P.settingsManage))
+  const call = () =>
+    start(async () => {
+      const res = await requestPatient(row.id)
+      if (!res.ok) return showError(res.error)
+      toast.success(t("requested"))
+      router.refresh()
+    })
+  const sent = () =>
+    start(async () => {
+      const res = await markPatientSent(row.id)
+      if (!res.ok) return showError(res.error)
+      toast.success(t("markedSent"))
+      router.refresh()
+    })
 
   const move = (status: "waiting_doctor" | "awaiting_checkout" | "checked_out" | "cancelled", reason?: string) =>
     start(async () => {
@@ -161,7 +190,8 @@ const QueueCard = memo(function QueueCard({ row, index, compact }: { row: QueueE
           </Link>
           <p className="truncate text-xs text-muted-foreground">
             {row.patient?.patient_code}
-            {age != null ? ` · ${t("age", { age })}` : ""} · {formatTime(row.arrived_at, locale)}
+            {age != null ? ` · ${t("age", { age })}` : ""} · {t("arrivedAt", { time: formatTime(row.arrived_at, locale) })}
+            {row.appointment ? ` · ${t("bookedAt", { time: formatTime(row.appointment.scheduled_at, locale) })}` : ""}
             {waited != null && row.status !== "checked_out" && row.status !== "cancelled" ? ` · ${t("waited", { minutes: waited })}` : ""}
           </p>
         </div>
@@ -199,10 +229,28 @@ const QueueCard = memo(function QueueCard({ row, index, compact }: { row: QueueE
             {t("sendToDoctor")}
           </Button>
         )}
-        {(row.status === "waiting_doctor" || row.status === "waiting_payment") && can(P.visitsCreate) && (
+        {(row.status === "waiting_doctor" || row.status === "waiting_payment" || row.status === "called") && can(P.visitsCreate) && (
           <Button size="sm" onClick={() => setStartOpen(true)}>
             <Play className="rtl:-scale-x-100" />
             {t("startVisit")}
+          </Button>
+        )}
+        {row.status === "waiting_doctor" && mineToCall && (
+          <Button size="sm" variant="secondary" onClick={call} disabled={pending}>
+            <BellRing />
+            {t("callPatient")}
+          </Button>
+        )}
+        {row.status === "called" && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/12 px-2 py-0.5 text-xs font-medium text-violet-700 dark:text-violet-300">
+            <BellRing className="size-3 motion-safe:animate-pulse" />
+            {row.patient_sent_at ? t("patientSent") : t("doctorRequested")}
+          </span>
+        )}
+        {row.status === "called" && !row.patient_sent_at && can(P.encountersCreate, P.appointmentsCheckin) && !can(P.visitsCreate) && (
+          <Button size="sm" onClick={sent} disabled={pending}>
+            <CheckCheck />
+            {t("markSent")}
           </Button>
         )}
         {row.status === "with_doctor" && openVisit && can(P.visitsView) && (

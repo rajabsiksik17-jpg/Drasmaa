@@ -21,7 +21,8 @@
     "doctor": "Doctor",
     "department": "Department",
     "status": "Status",
-    "visitType": "Visit type"
+    "visitType": "Visit type",
+    "close": "Close"
   },
   "nav": {
     "main": "Main navigation",
@@ -148,7 +149,7 @@
     "validation": "Please check the highlighted fields",
     "uploadFailed": "The upload did not complete. Please try again.",
     "fileTooLarge": "The file is too large.",
-    "fileType": "This file type is not allowed. Use PDF, JPG, PNG, WEBP or HEIC.",
+    "fileType": "This file type is not allowed. Use PDF, images (JPG, PNG, WEBP, HEIC), Word or Excel.",
     "network": "Connection problem. Your change was not saved.",
     "unexpected": "Something went wrong. Please try again.",
     "rateLimited": "Too many requests. Please wait a moment and try again.",
@@ -182,7 +183,9 @@
       "rescheduleAppointment": "Could not reschedule the appointment. Please try again.",
       "saveUser": "Could not save the user. Please try again.",
       "createUser": "Could not create the user. Please try again.",
-      "saveDoctor": "Could not save the doctor. Please try again."
+      "saveDoctor": "Could not save the doctor. Please try again.",
+      "uploadDocument": "The file could not be uploaded. Please try again.",
+      "markPatientSent": "Could not update the request. Please try again."
     }
   },
   "fields": {
@@ -322,7 +325,20 @@
     "upcoming": "Upcoming",
     "noUpcoming": "No upcoming appointments.",
     "welcomeNoAccess": "Welcome",
-    "welcomeNoAccessBody": "Your account has no appointment access. Ask an administrator if you need it."
+    "welcomeNoAccessBody": "Your account has no appointment access. Ask an administrator if you need it.",
+    "todayCards": "Today in the clinic",
+    "inClinic": "In clinic now",
+    "waitingPayment": "Waiting for payment",
+    "doctorRequests": "Doctor requests",
+    "paymentsDue": "Payments to collect",
+    "quick": {
+      "newPatient": "New patient",
+      "newPatientHint": "Register a patient file",
+      "newAppointment": "New appointment",
+      "newAppointmentHint": "Book a future time",
+      "newVisit": "New visit",
+      "newVisitHint": "The patient is here now"
+    }
   },
   "appointments": {
     "appointments": "Appointments",
@@ -420,7 +436,45 @@
     "outsideHoursBlocked": "This appointment is outside the configured working hours.",
     "outsideNeedsTick": "This time is outside the configured working hours. Tick “Allow outside working hours” to book it anyway.",
     "outsideNotAllowed": "This time is outside the configured working hours and your role may not book outside them.",
-    "outsideWarning": "This appointment is outside the configured working hours. It will be saved and marked as such."
+    "outsideWarning": "This appointment is outside the configured working hours. It will be saved and marked as such.",
+    "createVisit": "Patient is here — create visit",
+    "inClinicNow": "In the clinic now",
+    "upcomingToday": "Appointments not arrived yet",
+    "finishedToday": "Finished today",
+    "views": {
+      "label": "Views of the day",
+      "all": "All",
+      "appointments": "Appointments",
+      "visits": "Today's visits",
+      "waiting": "Waiting",
+      "with_doctor": "With doctor",
+      "completed": "Completed"
+    },
+    "viewEmpty": {
+      "inClinic": "No patient is in the clinic right now.",
+      "waiting": "No one is waiting.",
+      "with_doctor": "No patient is with a doctor.",
+      "completed": "No completed visits yet today."
+    },
+    "detail": {
+      "open": "Appointment details",
+      "title": "Appointment",
+      "planned": "Planned",
+      "patient": "Patient",
+      "doctor": "Doctor",
+      "scheduledFor": "Scheduled for",
+      "reason": "Reason / service",
+      "status": "Status",
+      "payment": "Payment",
+      "cash": "Cash",
+      "noCharge": "No charge",
+      "outsideHours": "Outside working hours",
+      "notes": "Notes",
+      "relatedVisit": "Related visit",
+      "arrived": "Arrived",
+      "notArrived": "The patient has not arrived yet. Check in to create the visit.",
+      "loadFailed": "The related visit could not be loaded."
+    }
   },
   "patients": {
     "patients": "Patients",
@@ -527,7 +581,10 @@
       "checkout": "Checkout / payment",
       "collect": "Collect payment",
       "continueVisit": "Continue visit",
-      "visitNow": "Create visit now"
+      "visitNow": "Create visit now",
+      "addDocument": "Add document",
+      "newReport": "New report",
+      "prescription": "Prescription"
     },
     "tabs": {
       "label": "Patient file sections",
@@ -703,7 +760,39 @@
       "waiting_doctor": "Waiting for doctor",
       "awaiting_checkout": "Ready for checkout",
       "checked_out": "Checked out",
-      "refunded": "Refunded"
+      "refunded": "Refunded",
+      "called": "Called by doctor"
+    },
+    "by": "By {who}",
+    "open": "Open",
+    "more": "Show more",
+    "filters": {
+      "all": "All",
+      "visits": "Visits",
+      "appointments": "Appointments",
+      "cases": "Cases",
+      "files": "Ultrasound & files",
+      "clinical": "Prescriptions & reports",
+      "billing": "Billing"
+    },
+    "kind": {
+      "patient_created": "Patient",
+      "appointment": "Appointment",
+      "checked_in": "Appointment",
+      "visit": "Medical visit",
+      "fertility_case": "Fertility",
+      "pregnancy_case": "Pregnancy",
+      "oi_cycle_started": "O/I cycle",
+      "oi_cycle_completed": "O/I cycle",
+      "document": "File",
+      "drawing": "Ultrasound",
+      "prescription": "Prescription",
+      "medical_report": "Report",
+      "invoice": "Invoice",
+      "payment": "Payment",
+      "generated_document": "Document",
+      "clinic_visit": "Visit",
+      "checked_out": "Visit"
     }
   },
   "visits": {
@@ -727,7 +816,8 @@
       "investigations": "Investigations",
       "imaging": "Ultrasound images & drawings",
       "prescription": "Prescription",
-      "billing": "Billing summary"
+      "billing": "Billing summary",
+      "attachments": "Attachments"
     },
     "selectType": "Select visit type",
     "selectTypeHint": "The visit type decides which medical form opens. Shared history stays available.",
@@ -774,7 +864,15 @@
     "newPregnancy": "New pregnancy follow-up",
     "newFollowUp": "New follow-up visit",
     "exportSummary": "Summary",
-    "exportFollowup": "Follow-up table"
+    "exportFollowup": "Follow-up table",
+    "quick": {
+      "startedAt": "Started {time}",
+      "addService": "Add service",
+      "addDocument": "Add document",
+      "prescription": "Prescription",
+      "report": "Report",
+      "ultrasound": "Ultrasound"
+    }
   },
   "forms": {
     "sections": "Sections"
@@ -1017,7 +1115,12 @@
       "investigation": "Investigation",
       "ultrasound": "Ultrasound",
       "medical": "Medical document",
-      "other": "Other"
+      "other": "Other",
+      "lab": "Lab report",
+      "imaging": "Imaging (HSG, MRI, CT…)",
+      "referral": "Referral letter",
+      "previous_report": "Previous medical report",
+      "identity": "Identity / passport"
     },
     "docTitle": "Title",
     "notes": "Notes",
@@ -1025,7 +1128,7 @@
     "done": "Uploaded",
     "uploaded": "{name} uploaded",
     "cancelUpload": "Cancel upload",
-    "fileType": "This file type is not allowed. Use PDF, JPG, PNG, WEBP or HEIC.",
+    "fileType": "This file type is not allowed. Use PDF, images (JPG, PNG, WEBP, HEIC), Word or Excel.",
     "fileTooLarge": "The file is larger than {max} MB.",
     "view": "View",
     "download": "Download",
@@ -1040,7 +1143,29 @@
     "archiveTitle": "Archive document?",
     "archiveBody": "\"{name}\" will be hidden from the active list. The file is kept and can be restored.",
     "archivedDone": "Document archived",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "attachTo": "Attach to",
+    "level": {
+      "visit": "This visit",
+      "patient": "Patient file"
+    },
+    "camera": "Camera",
+    "cancelled": "Cancelled",
+    "chooseFiles": "Choose files",
+    "description": "Description",
+    "displayName": "Display name",
+    "documentDate": "Document date",
+    "removeFile": "Remove",
+    "retry": "Retry",
+    "tags": "Tags",
+    "tagsPlaceholder": "e.g. right ovary, follow-up",
+    "uploadCount": "{count, plural, =0 {Upload} one {Upload # file} other {Upload # files}}",
+    "uploadHintMulti": "Several files at once: PDF, images, Word or Excel (up to {max} MB each). Give each file a clear name.",
+    "uploadedCount": "{count, plural, one {# file uploaded} other {# files uploaded}}",
+    "editMeta": "Edit details",
+    "metaSaved": "Details saved",
+    "uploadedBy": "{when} · {who}",
+    "emptyVisit": "No files attached to this visit."
   },
   "cases": {
     "newFertility": "New fertility case",
@@ -1211,7 +1336,20 @@
       "system": {
         "title": "System message",
         "body": "{detail}"
+      },
+      "patient_requested": {
+        "title": "🔔 {doctor} requested {patient}",
+        "body": "Please send {patient} ({code}) to {doctor}."
+      },
+      "bill_ready": {
+        "title": "Visit completed by {doctor}",
+        "body": "{patient} — payment required: {amount}."
       }
+    },
+    "actions": {
+      "markSent": "Patient sent",
+      "markedSent": "The doctor sees that the patient is on the way",
+      "openPayment": "Open payment"
     }
   },
   "palette": {
@@ -1277,7 +1415,8 @@
     "alwaysOn": "Always on",
     "inApp": "In-app",
     "emailChannel": "Email",
-    "sessionsLink": "Active sessions, trusted browsers & sign-in history"
+    "sessionsLink": "Active sessions, trusted browsers & sign-in history",
+    "soundAlerts": "Soft sound for queue alerts (doctor requests, bills ready, patient waiting)"
   },
   "admin": {
     "users": "Users",
@@ -2853,7 +2992,13 @@
     "saveDiscount": "Save discount",
     "serviceAdded": "Service added",
     "discountLimitHint": "A reason is required. Your role may give up to {percent}%.",
-    "discountReasonHint": "A reason is required for every discount."
+    "discountReasonHint": "A reason is required for every discount.",
+    "decrease": "Decrease quantity",
+    "increase": "Increase quantity",
+    "finishVisit": "Finish visit",
+    "visitFinished": "Visit finished — the bill is now with reception",
+    "finishHintPrepay": "Finishing sends any extra services to reception for payment at checkout.",
+    "finishHintPostpay": "Finishing finalizes the bill and notifies reception to collect it."
   },
   "weekdays": {
     "0": "Sunday",
@@ -2970,7 +3115,21 @@
       "awaiting_checkout": "Ready for checkout",
       "bill_finalized": "Bill finalized · waiting for payment",
       "checked_out": "Checked out",
-      "cancelled": "Cancelled"
-    }
+      "cancelled": "Cancelled",
+      "called": "Called by doctor"
+    },
+    "arrivedAt": "Arrived {time}",
+    "bookedAt": "Appointment {time}",
+    "callPatient": "Call patient",
+    "requested": "Reception has been asked to send the patient",
+    "doctorRequested": "Requested by doctor",
+    "patientSent": "Patient on the way",
+    "markSent": "Mark patient sent",
+    "markedSent": "Marked as sent",
+    "createdAt": "Visit created at {time}",
+    "openPatient": "Open patient",
+    "collectNow": "Collect payment",
+    "openBill": "Open bill",
+    "newPatient": "New patient"
   }
 }

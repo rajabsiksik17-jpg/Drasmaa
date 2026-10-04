@@ -2,6 +2,7 @@
 
 import { discardUpload, finalizeUpload, prepareUpload } from "@/lib/actions/documents"
 import type { ActionError } from "@/lib/errors"
+import { mimeForFile } from "@/lib/storage/files"
 import type { DocumentCategory } from "@/types/db"
 
 export interface UploadLinks {
@@ -10,6 +11,7 @@ export interface UploadLinks {
   fertilityCaseId?: string | null
   pregnancyCaseId?: string | null
   cycleId?: string | null
+  investigationId?: string | null
 }
 
 /**
@@ -21,18 +23,24 @@ export interface UploadLinks {
  */
 export async function uploadDocument(
   file: File,
-  opts: UploadLinks & { category: DocumentCategory; title?: string | null; notes?: string | null },
+  opts: UploadLinks & {
+    category: DocumentCategory
+    title?: string | null
+    notes?: string | null
+    documentDate?: string | null
+    tags?: string[]
+  },
   onProgress: (fraction: number) => void,
   signal?: AbortSignal,
 ): Promise<{ ok: true; id: string } | { ok: false; error: ActionError }> {
-  const meta = { fileName: file.name, mimeType: file.type, size: file.size }
+  const meta = { fileName: file.name, mimeType: mimeForFile(file), size: file.size }
   const prepared = await prepareUpload({ ...opts, ...meta })
   if (!prepared.ok) return prepared
 
   const put = await new Promise<boolean>((resolve) => {
     const xhr = new XMLHttpRequest()
     xhr.open("PUT", prepared.data.signedUrl)
-    xhr.setRequestHeader("Content-Type", file.type)
+    xhr.setRequestHeader("Content-Type", meta.mimeType)
     xhr.setRequestHeader("x-upsert", "false")
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) onProgress(Math.min(0.98, e.loaded / e.total))
