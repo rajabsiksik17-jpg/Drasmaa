@@ -28,7 +28,7 @@ export default async function SecurityCenterPage() {
   const day = isoDaysAgo(1)
   const week = isoDaysAgo(7)
 
-  const [policy, account, activeSessions, failed24, critical7, logins, failures, events, profiles] = await Promise.all([
+  const [policy, account, activeSessions, failed24, critical7, logins, failures, events, profiles, serverErrors] = await Promise.all([
     supabase.from("auth_security_settings").select("otp_mode, otp_scope, login_max_failures, login_lockout_minutes").eq("id", 1).single(),
     supabase.from("email_accounts").select("smtp_status, imap_status, last_test_at").eq("is_default", true).maybeSingle(),
     supabase.from("user_sessions").select("id", { count: "exact", head: true }).eq("status", "active").gte("last_seen_at", week),
@@ -38,6 +38,9 @@ export default async function SecurityCenterPage() {
     supabase.from("login_events").select("id, occurred_at, event, email, user_id, ip, browser, os").in("event", ["login_failed", "login_locked", "otp_failed", "otp_locked"]).order("occurred_at", { ascending: false }).limit(12),
     supabase.from("security_events").select("id, occurred_at, event_type, severity, summary, actor_id, target_user_id").order("occurred_at", { ascending: false }).limit(15),
     supabase.from("profiles").select("id, full_name"),
+    hasPermission(session, P.auditView)
+      ? supabase.from("app_error_logs").select("id, occurred_at, digest, message, path, route_path").order("occurred_at", { ascending: false }).limit(15)
+      : Promise.resolve({ data: [] }),
   ])
   const names = new Map((profiles.data ?? []).map((p) => [p.id as string, p.full_name as string]))
   const withUser = (rows: (LoginEventRow & { user_id?: string | null })[] | null) =>
@@ -121,6 +124,29 @@ export default async function SecurityCenterPage() {
           }))}
         />
       </SectionCard>
+
+      {hasPermission(session, P.auditView) && (
+        <SectionCard title={t("serverErrors")} icon={AlertTriangle} bodyClassName="p-0">
+          {(serverErrors.data ?? []).length === 0 ? (
+            <p className="px-4 py-6 text-center text-sm text-muted-foreground">{t("noServerErrors")}</p>
+          ) : (
+            <ul className="divide-y text-sm">
+              {(serverErrors.data as { id: number; occurred_at: string; digest: string | null; message: string | null; path: string | null; route_path: string | null }[]).map((e) => (
+                <li key={e.id} className="space-y-0.5 px-4 py-2.5">
+                  <p className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    <span className="font-mono">{e.digest ?? "—"}</span>
+                    <span dir="ltr">{e.path}</span>
+                    <span>{new Date(e.occurred_at).toLocaleString("en-GB", { timeZone: "Asia/Amman" })}</span>
+                  </p>
+                  <p className="font-mono text-xs break-words" dir="ltr">
+                    {e.message}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </SectionCard>
+      )}
 
       <p className="text-xs text-muted-foreground">{t("infraNote")}</p>
     </div>

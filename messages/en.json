@@ -474,7 +474,8 @@
       "arrived": "Arrived",
       "notArrived": "The patient has not arrived yet. Check in to create the visit.",
       "loadFailed": "The related visit could not be loaded."
-    }
+    },
+    "clinicViewFailed": "Today's clinic activity could not be loaded. The appointment list is shown; please refresh in a moment."
   },
   "patients": {
     "patients": "Patients",
@@ -2098,7 +2099,9 @@
     },
     "by": "by {name}",
     "forUser": "user {name}",
-    "infraNote": "The application enforces HTTPS headers, CSP, rate limiting and database-level access control, but it is not a firewall. In production run it behind a reverse proxy / WAF with TLS, keep the database closed to the internet, use SSH keys, automatic security updates, encrypted backups and monitoring."
+    "infraNote": "The application enforces HTTPS headers, CSP, rate limiting and database-level access control, but it is not a firewall. In production run it behind a reverse proxy / WAF with TLS, keep the database closed to the internet, use SSH keys, automatic security updates, encrypted backups and monitoring.",
+    "serverErrors": "Recent server errors (by reference number)",
+    "noServerErrors": "No server errors recorded."
   },
   "composer": {
     "title": "Message patient",

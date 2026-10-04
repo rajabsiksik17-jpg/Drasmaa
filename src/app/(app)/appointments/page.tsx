@@ -16,6 +16,7 @@ import { CalendarClock, DoorOpen, CheckCircle2 } from "lucide-react"
 import { NewAppointmentButton } from "@/components/appointments/new-appointment-button"
 import { WeekCalendar } from "@/components/appointments/week-calendar"
 import { RealtimeRefresh } from "@/components/realtime-refresh"
+import { isNavigationError } from "@/lib/navigation-error"
 import type { AppointmentStatus } from "@/types/db"
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -55,7 +56,22 @@ export default async function AppointmentsPage({ searchParams }: PageProps<"/app
     const { rows } = await getAppointments({ ...filters, from, to, limit: 1000 })
     content = <WeekCalendar weekStart={weekStart} rows={rows.filter((r) => r.status !== "rescheduled")} />
   } else if (tab === "today") {
-    content = await clinicDay({ sp, filters, emptyAppointments: t("emptyTab.today"), session })
+    // One failing part must not take the whole Appointments page down.
+    try {
+      content = await clinicDay({ sp, filters, emptyAppointments: t("emptyTab.today"), session })
+    } catch (error) {
+      if (isNavigationError(error)) throw error
+      console.error("[appointments] today view failed", error)
+      const { rows } = await getAppointments({ ...filters, from: dayWindow(0).start, to: dayWindow(0).end, ascending: true, limit: 300 })
+      content = (
+        <div className="space-y-3">
+          <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+            {t("clinicViewFailed")}
+          </p>
+          <AppointmentList rows={rows} emptyTitle={t("emptyTab.today")} />
+        </div>
+      )
+    }
   } else {
     const query =
       tab === "tomorrow"
@@ -127,8 +143,9 @@ async function clinicDay({
   const t = await getTranslations("appointments")
   const view: DayView = (DAY_VIEWS as readonly string[]).includes(str(sp.view) ?? "") ? (str(sp.view) as DayView) : "all"
   const canQueue = hasPermission(session, P.encountersCreate) || hasPermission(session, P.visitsCreate) || hasPermission(session, P.accountingView)
+  const today = dayWindow(0)
   const [{ rows: appts }, queue, refs] = await Promise.all([
-    getAppointments({ ...filters, ...dayWindow(0), ascending: true, limit: 300 }),
+    getAppointments({ ...filters, from: today.start, to: today.end, ascending: true, limit: 300 }),
     canQueue ? getTodayQueue() : Promise.resolve({ rows: [] as QueueEncounter[], error: false }),
     getReferenceData(),
   ])
