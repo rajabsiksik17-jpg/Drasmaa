@@ -58,7 +58,7 @@ export default async function VisitPage({ params }: PageProps<"/patients/[patien
       ? supabase
           .from("invoices")
           .select(
-            "id, invoice_number, status, currency, subtotal, discount_type, discount_value, discount_reason, discount_amount, total, insurance_amount, patient_amount, paid_patient, paid_insurance, balance_patient, balance_insurance, payment_type, insurance_company_id, insurance_claim_ref, notes, encounter_id, version, lines:invoice_lines(id, description_en, description_ar, quantity, line_total, package_line_id, sort_order, source)",
+            "id, invoice_number, status, currency, subtotal, discount_type, discount_value, discount_reason, discount_amount, total, insurance_amount, patient_amount, paid_patient, paid_insurance, balance_patient, balance_insurance, payment_type, insurance_company_id, insurance_claim_ref, notes, encounter_id, version, lines:invoice_lines(id, service_id, description_en, description_ar, quantity, unit_price, default_price, discount_amount, notes, line_total, package_line_id, sort_order, source)",
           )
           .or(billLinks)
           .neq("status", "void")

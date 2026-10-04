@@ -15,7 +15,6 @@ export function NativeSelect({
   return (
     <div className="relative">
       <select
-        aria-invalid={invalid || undefined}
         className={cn(
           "h-9 w-full appearance-none rounded-lg border border-input bg-background ps-3 pe-8 text-sm shadow-xs transition outline-none",
           "focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-60",
@@ -23,6 +22,7 @@ export function NativeSelect({
           className,
         )}
         {...props}
+        aria-invalid={invalid || props["aria-invalid"] || undefined}
       >
         {children}
       </select>

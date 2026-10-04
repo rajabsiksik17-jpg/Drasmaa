@@ -171,7 +171,7 @@ export const QueueCard = memo(function QueueCard({ row, index, compact }: { row:
       router.refresh()
     })
 
-  const move = (status: "waiting_doctor" | "awaiting_checkout" | "checked_out" | "cancelled", reason?: string) =>
+  const move = (status: "waiting_doctor" | "with_doctor" | "awaiting_checkout" | "checked_out" | "cancelled", reason?: string) =>
     start(async () => {
       const res = await setEncounterStatus({ id: row.id, status, reason: reason ?? null })
       if (!res.ok) return showError(res.error)
@@ -251,6 +251,12 @@ export const QueueCard = memo(function QueueCard({ row, index, compact }: { row:
           <Button size="sm" onClick={sent} disabled={pending}>
             <CheckCheck />
             {t("markSent")}
+          </Button>
+        )}
+        {row.status === "called" && row.patient_sent_at && can(P.encountersCreate, P.appointmentsCheckin) && !can(P.visitsCreate) && (
+          <Button size="sm" variant="secondary" onClick={() => move("with_doctor")} disabled={pending}>
+            <DoorOpen />
+            {t("patientEntered")}
           </Button>
         )}
         {row.status === "with_doctor" && openVisit && can(P.visitsView) && (

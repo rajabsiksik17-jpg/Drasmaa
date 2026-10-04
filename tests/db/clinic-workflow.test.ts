@@ -370,3 +370,67 @@ describe("doctor requests and live queue events (0017)", () => {
     await expect(db.as(reception, () => db.query("update documents set storage_path = 'x/y.pdf' where id = $1", [d.id]))).rejects.toThrow(/cannot be changed/)
   })
 })
+
+describe("flexible visit services and payment confirmation (0019)", () => {
+  it("doctor changes a price for this visit only, adds custom services and line discounts", async () => {
+    await setPrepay(false)
+    const p = await registerPatient("Flexible Bill", { service_id: consultation })
+    const enc = p.encounter_id!
+    const inv = await invoiceOf(enc)
+    const line = await one<{ id: string; unit_price: string; default_price: string }>("select * from invoice_lines where invoice_id = $1 and source = 'appointment'", [inv.id])
+    expect([num(line.unit_price), num(line.default_price)]).toEqual([20, 20])
+    // Visit price 35 (doctor), the catalog stays 20.
+    await db.as(doctor, () => db.query("update invoice_lines set unit_price = 35 where id = $1", [line.id]))
+    expect(num((await one<{ price_cash: string }>("select price_cash from services where id = $1", [consultation])).price_cash)).toBe(20)
+    // Reception cannot override prices.
+    await expect(db.as(reception, () => db.query("update invoice_lines set unit_price = 1 where id = $1", [line.id]))).rejects.toThrow(/not allowed to change service prices/)
+    // Custom service (not in the catalog) + a line discount within the doctor's limit (50%).
+    await db.as(doctor, () =>
+      db.query(
+        "insert into invoice_lines (invoice_id, description_en, description_ar, quantity, unit_price, discount_amount, notes, source) values ($1, 'Detailed pelvic examination', 'Detailed pelvic examination', 1, 20, 5, 'Extended exam', 'manual')",
+        [inv.id],
+      ),
+    )
+    await expect(
+      db.as(doctor, () =>
+        db.query("insert into invoice_lines (invoice_id, description_en, description_ar, quantity, unit_price, discount_amount, source) values ($1, 'X', 'X', 1, 10, 9, 'manual')", [inv.id]),
+      ),
+    ).rejects.toThrow(/limit/)
+    await expect(
+      db.as(doctor, () => db.query("insert into invoice_lines (invoice_id, description_en, description_ar, quantity, unit_price, source) values ($1, ' ', ' ', 1, 10, 'manual')", [inv.id])),
+    ).rejects.toThrow(/Service name is required/)
+    const bill = await invoiceOf(enc)
+    expect(num(bill.total)).toBe(10 + 35 + (20 - 5))
+    // A later catalog change never touches this bill.
+    await db.as(admin, () => db.query("update services set price_cash = 99 where id = $1", [consultation]))
+    expect(num((await invoiceOf(enc)).total)).toBe(60)
+    await db.as(admin, () => db.query("update services set price_cash = 20 where id = $1", [consultation]))
+  })
+
+  it("reception confirms the patient entered; full payment completes the visit and its appointment", async () => {
+    await setPrepay(false)
+    await db.query("update clinic_settings set enforce_working_hours = false where id = 1")
+    const p = await registerPatient("Booked Then Paid")
+    const appt = await db.as(reception, () =>
+      one<{ id: string }>(
+        "insert into appointments (patient_id, doctor_id, department_id, visit_type, scheduled_at, service_id, status) values ($1, $2, $3, 'gynecology', $4, $5, 'checked_in') returning id",
+        [p.id, doctorId, artDept, ammanAt(0, "11:00"), consultation],
+      ),
+    )
+    const enc = (await one<{ id: string }>("select id from encounters where appointment_id = $1", [appt.id])).id
+    await db.as(doctor, () => db.query("select public.request_patient($1)", [enc]))
+    await db.as(reception, () => db.query("select public.mark_patient_sent($1)", [enc]))
+    await db.as(reception, () => db.query("select public.set_encounter_status($1, 'with_doctor')", [enc]))
+    expect((await encounter(enc)).status).toBe("with_doctor")
+    await db.as(doctor, () => db.query("select public.set_encounter_status($1, 'awaiting_checkout')", [enc]))
+    const inv = await invoiceOf(enc)
+    expect((await encounter(enc)).status).toBe("awaiting_checkout")
+    await pay(inv.id, num(inv.balance_patient))
+    expect((await encounter(enc)).status).toBe("checked_out")
+    expect((await one<{ status: string }>("select status from appointments where id = $1", [appt.id])).status).toBe("completed")
+    // History keeps both records.
+    expect((await rows("select id from appointments where id = $1", [appt.id])).length).toBe(1)
+    await db.query("update clinic_settings set enforce_working_hours = true where id = 1")
+    await setPrepay(true)
+  })
+})

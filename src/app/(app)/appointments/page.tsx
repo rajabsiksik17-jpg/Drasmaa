@@ -7,7 +7,8 @@ import { P } from "@/lib/permissions"
 import { addDaysIso, clinicDayRange, clinicToday, formatDateLong } from "@/lib/dates"
 import { PageHeader } from "@/components/common/page"
 import { AppointmentList } from "@/components/appointments/appointment-list"
-import { AppointmentFilters, AppointmentTabs, DAY_VIEWS, DayViewChips, Pager, type DayView } from "@/components/appointments/appointment-filters"
+import { AppointmentFilters, AppointmentTabs, DayViewChips, Pager } from "@/components/appointments/appointment-filters"
+import { DAY_VIEWS, type DayView } from "@/lib/appointments/day-views"
 import { EncounterCards, QueueBoard } from "@/components/encounters/queue-board"
 import { SectionCard } from "@/components/common/page"
 import { getTodayQueue, type QueueEncounter } from "@/lib/data/encounters"
@@ -17,6 +18,8 @@ import { NewAppointmentButton } from "@/components/appointments/new-appointment-
 import { WeekCalendar } from "@/components/appointments/week-calendar"
 import { RealtimeRefresh } from "@/components/realtime-refresh"
 import { isNavigationError } from "@/lib/navigation-error"
+import { reportServerError } from "@/lib/observability/error-log"
+import { RetryButton } from "@/components/common/retry-button"
 import type { AppointmentStatus } from "@/types/db"
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -61,13 +64,11 @@ export default async function AppointmentsPage({ searchParams }: PageProps<"/app
       content = await clinicDay({ sp, filters, emptyAppointments: t("emptyTab.today"), session })
     } catch (error) {
       if (isNavigationError(error)) throw error
-      console.error("[appointments] today view failed", error)
+      await reportServerError(error, { path: "/appointments", source: "appointments.today" })
       const { rows } = await getAppointments({ ...filters, from: dayWindow(0).start, to: dayWindow(0).end, ascending: true, limit: 300 })
       content = (
         <div className="space-y-3">
-          <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-            {t("clinicViewFailed")}
-          </p>
+          <LiveActivityError message={t("clinicViewFailed")} />
           <AppointmentList rows={rows} emptyTitle={t("emptyTab.today")} />
         </div>
       )
@@ -149,6 +150,7 @@ async function clinicDay({
     canQueue ? getTodayQueue() : Promise.resolve({ rows: [] as QueueEncounter[], error: false }),
     getReferenceData(),
   ])
+  if (queue.error) await reportServerError(new Error("Today's clinic visits query failed"), { path: "/appointments", source: "appointments.queue" })
   const visits = queue.rows.filter((e) => !filters.doctorId || e.doctor_id === filters.doctorId)
   const arrivedAppointments = new Set(visits.map((e) => e.appointment_id).filter(Boolean))
   const notArrived = appts.filter((a) => !arrivedAppointments.has(a.id) && a.status !== "rescheduled")
@@ -192,7 +194,18 @@ async function clinicDay({
   return (
     <div className="space-y-3">
       <DayViewChips current={view} counts={counts} />
+      {/* Live activity failed but appointments loaded: say so, keep the rest usable. */}
+      {queue.error && <LiveActivityError message={t("liveActivityFailed")} />}
       {body}
+    </div>
+  )
+}
+
+function LiveActivityError({ message }: { message: string }) {
+  return (
+    <div role="alert" className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+      <span>{message}</span>
+      <RetryButton />
     </div>
   )
 }

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { NativeSelect } from "@/components/common/native-select"
 import { useRefs } from "@/components/app-context"
 import { cn } from "@/lib/utils"
+import { DAY_VIEWS, type DayView } from "@/lib/appointments/day-views"
 
 const TABS = ["today", "tomorrow", "upcoming", "previous", "calendar"] as const
 
@@ -140,8 +141,6 @@ export function Pager({ page, pageSize, total }: { page: number; pageSize: numbe
   )
 }
 
-export const DAY_VIEWS = ["all", "appointments", "visits", "waiting", "with_doctor", "completed"] as const
-export type DayView = (typeof DAY_VIEWS)[number]
 
 /** Views of the clinic day (filters of one page, not separate pages). */
 export function DayViewChips({ current, counts }: { current: DayView; counts: Record<DayView, number> }) {

@@ -17,6 +17,8 @@ export default async function InvoicePrint({ params }: PageProps<"/print/invoice
   const inv = b.invoice
   const m = (v: number, bold = false) => <MoneyCell value={v} currency={inv.currency} locale={locale} bold={bold} />
   const lines = b.lines.filter((l) => !l.package_line_id)
+  // Per-line discounts (doctor / checkout) get their own column only when used.
+  const hasLineDiscount = b.lines.some((l) => Number(l.discount_amount ?? 0) > 0)
   const components = (lineId: string) => b.lines.filter((l) => l.package_line_id === lineId)
   return (
     <ReportDocument
@@ -29,10 +31,11 @@ export default async function InvoicePrint({ params }: PageProps<"/print/invoice
       subtitle={inv.status === "void" ? t("status.void") : undefined}
     >
       <ReportTable
-        head={[t("service"), t("qty"), t("unitPrice"), t("amount")]}
+        head={hasLineDiscount ? [t("service"), t("qty"), t("unitPrice"), t("discount"), t("amount")] : [t("service"), t("qty"), t("unitPrice"), t("amount")]}
         rows={lines.map((l) => [
           <span key="d">
             {ar ? l.description_ar : l.description_en}
+            {l.notes && <span className="block text-[10.5px] text-black/60">{l.notes}</span>}
             {components(l.id).length > 0 && (
               <span className="block text-[10.5px] text-black/60">
                 {components(l.id)
@@ -43,6 +46,7 @@ export default async function InvoicePrint({ params }: PageProps<"/print/invoice
           </span>,
           String(l.quantity),
           m(l.unit_price),
+          ...(hasLineDiscount ? [Number(l.discount_amount ?? 0) > 0 ? <span key="ld">- {m(Number(l.discount_amount))}</span> : "—"] : []),
           m(l.line_total),
         ])}
         empty={t("noLines")}

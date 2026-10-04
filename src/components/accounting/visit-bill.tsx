@@ -3,8 +3,8 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useLocale, useTranslations } from "next-intl"
-import { ArrowUpRight, CheckCircle2, Loader2, Minus, Plus, Receipt, Save, Trash2 } from "lucide-react"
+import { useTranslations } from "next-intl"
+import { ArrowUpRight, CheckCircle2, Loader2, Receipt, Save } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -13,7 +13,8 @@ import { useCan, useRefs } from "@/components/app-context"
 import { InvoiceStatusBadge, Money } from "@/components/accounting/money"
 import { useActionError } from "@/hooks/use-action-error"
 import { useSafeTransition } from "@/hooks/use-safe-transition"
-import { addInvoiceService, updateInvoice, updateInvoiceLine } from "@/lib/actions/accounting"
+import { updateInvoice } from "@/lib/actions/accounting"
+import { BillLinesEditor, type EditableLine } from "@/components/accounting/bill-lines-editor"
 import { completeVisit } from "@/lib/actions/clinical"
 import { P } from "@/lib/permissions"
 import type { Invoice } from "@/types/db"
@@ -42,7 +43,22 @@ export type VisitBillInvoice = Pick<
   | "notes"
   | "encounter_id"
   | "version"
-> & { lines: { id?: string; description_en: string; description_ar: string; quantity: number; line_total: number; package_line_id: string | null; source?: string }[] }
+> & {
+  lines: {
+    id?: string
+    service_id?: string | null
+    description_en: string
+    description_ar: string
+    quantity: number
+    unit_price?: number
+    default_price?: number | null
+    discount_amount?: number
+    notes?: string | null
+    line_total: number
+    package_line_id: string | null
+    source?: string
+  }[]
+}
 
 /**
  * The visit's bill inside the medical visit. In the post-payment workflow the
@@ -61,13 +77,11 @@ export function VisitBill({
   visitOpen?: boolean
 }) {
   const t = useTranslations("accounting")
-  const locale = useLocale()
   const can = useCan()
   const refs = useRefs()
   const router = useRouter()
   const { showError } = useActionError()
   const [pending, start] = useSafeTransition()
-  const [serviceId, setServiceId] = useState("")
   const [discount, setDiscount] = useState({
     type: (invoice.discount_type ?? "percent") as "percent" | "fixed",
     value: String(invoice.discount_value ?? 0),
@@ -76,27 +90,6 @@ export function VisitBill({
   const c = invoice.currency
   const paid = invoice.paid_patient + invoice.paid_insurance > 0
   const canCharge = editable && invoice.status !== "void" && (can(P.billingCharge) || can(P.accountingCreate))
-  const services = refs.services.filter((s) => s.active && s.category !== "package" && s.auto_trigger !== "registration")
-  const name = (x: { name_en: string; name_ar: string }) => (locale === "ar" ? x.name_ar : x.name_en)
-  const price = (s: (typeof services)[number]) =>
-    Number(invoice.payment_type !== "cash" && s.insurance_eligible ? (s.price_insurance ?? s.price_cash) : s.price_cash)
-
-  const add = () =>
-    start(async () => {
-      if (!serviceId) return
-      const res = await addInvoiceService({ invoiceId: invoice.id, serviceId, quantity: 1 })
-      if (!res.ok) return showError(res.error)
-      setServiceId("")
-      toast.success(t("serviceAdded"))
-      router.refresh()
-    })
-
-  const changeLine = (lineId: string, patch: { quantity?: number; remove?: boolean }) =>
-    start(async () => {
-      const res = await updateInvoiceLine({ lineId, ...patch, reason: null })
-      if (!res.ok) return showError(res.error)
-      router.refresh()
-    })
 
   // "Finish visit": completes the medical visit; the final bill then goes to reception (realtime).
   const finish = () =>
@@ -143,55 +136,14 @@ export function VisitBill({
           </Button>
         )}
       </div>
-      <ul className="divide-y text-sm">
-        {invoice.lines
-          .filter((l) => !l.package_line_id)
-          .map((l, i) => (
-            <li key={l.id ?? i} className="flex justify-between gap-3 py-1.5">
-              <span className="min-w-0">
-                {locale === "ar" ? l.description_ar : l.description_en}
-                {l.quantity > 1 && <span className="text-muted-foreground"> × {l.quantity}</span>}
-                {l.source && l.source !== "manual" && <span className="ms-2 rounded bg-muted px-1.5 text-[10px] text-muted-foreground">{t(`sources.${l.source}`)}</span>}
-              </span>
-              <span className="flex shrink-0 items-center gap-1">
-                {canCharge && !paid && l.id && l.source !== "registration" && (
-                  <>
-                    <Button size="icon-xs" variant="ghost" aria-label={t("decrease")} disabled={pending || l.quantity <= 1} onClick={() => changeLine(l.id!, { quantity: l.quantity - 1 })}>
-                      <Minus />
-                    </Button>
-                    <Button size="icon-xs" variant="ghost" aria-label={t("increase")} disabled={pending || l.quantity >= 100} onClick={() => changeLine(l.id!, { quantity: l.quantity + 1 })}>
-                      <Plus />
-                    </Button>
-                    <Button size="icon-xs" variant="ghost" className="text-destructive" aria-label={t("remove")} disabled={pending} onClick={() => changeLine(l.id!, { remove: true })}>
-                      <Trash2 />
-                    </Button>
-                  </>
-                )}
-                <Money value={l.line_total} currency={c} />
-              </span>
-            </li>
-          ))}
-        {invoice.lines.length === 0 && <li className="py-3 text-center text-muted-foreground">{t("noLines")}</li>}
-      </ul>
-
-      {canCharge && (
-        <div className="mt-3 grid gap-2 border-t pt-3 sm:grid-cols-[1fr_auto]">
-          <NativeSelect value={serviceId} onChange={(e) => setServiceId(e.target.value)} aria-label={t("addService")}>
-            <option value="">{t("chooseService")}</option>
-            {services.map((s) => (
-              <option key={s.id} value={s.id}>
-                {name(s)}
-                {can(P.pricingView) || can(P.billingCharge) ? ` — ${s.billable ? price(s).toFixed(3) : t("free")}` : ""}
-              </option>
-            ))}
-          </NativeSelect>
-          <Button onClick={add} disabled={!serviceId || pending}>
-            {pending ? <Loader2 className="animate-spin" /> : <Plus />}
-            {t("addService")}
-          </Button>
-          {paid && <p className="text-xs text-muted-foreground sm:col-span-2">{t("addAfterPaymentHint")}</p>}
-        </div>
-      )}
+      <BillLinesEditor
+        invoiceId={invoice.id}
+        currency={c}
+        paymentType={invoice.payment_type}
+        lines={invoice.lines.filter((l): l is typeof l & { id: string } => !!l.id) as EditableLine[]}
+        editable={canCharge && !paid}
+      />
+      {paid && canCharge && <p className="mt-2 text-xs text-muted-foreground">{t("addAfterPaymentHint")}</p>}
 
       {canCharge && can(P.accountingDiscount) && !paid && (
         <div className="mt-3 grid gap-2 border-t pt-3">

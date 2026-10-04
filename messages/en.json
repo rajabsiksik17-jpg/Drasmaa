@@ -22,7 +22,9 @@
     "department": "Department",
     "status": "Status",
     "visitType": "Visit type",
-    "close": "Close"
+    "close": "Close",
+    "retry": "Retry",
+    "retrying": "Retrying…"
   },
   "nav": {
     "main": "Main navigation",
@@ -475,7 +477,16 @@
       "notArrived": "The patient has not arrived yet. Check in to create the visit.",
       "loadFailed": "The related visit could not be loaded."
     },
-    "clinicViewFailed": "Today's clinic activity could not be loaded. The appointment list is shown; please refresh in a moment."
+    "clinicViewFailed": "Today's clinic activity could not be loaded. The appointment list is shown.",
+    "liveActivityFailed": "Today's live clinic activity could not be loaded. Appointments are shown below.",
+    "trail": {
+      "arrived": "Arrived {time}",
+      "visitDone": "Visit completed",
+      "paid": "Paid",
+      "due": "Due {amount}",
+      "checkedOut": "Checked out",
+      "cancelled": "Visit cancelled"
+    }
   },
   "patients": {
     "patients": "Patients",
@@ -1348,8 +1359,8 @@
       }
     },
     "actions": {
-      "markSent": "Patient sent",
-      "markedSent": "The doctor sees that the patient is on the way",
+      "markSent": "Patient called",
+      "markedSent": "The doctor sees that the patient was called",
       "openPayment": "Open payment"
     }
   },
@@ -3109,7 +3120,8 @@
       "waiting_doctor": "Sent to the doctor's queue",
       "awaiting_checkout": "Sent to checkout",
       "checked_out": "Checked out",
-      "cancelled": "Visit cancelled"
+      "cancelled": "Visit cancelled",
+      "with_doctor": "Patient is with the doctor"
     },
     "status": {
       "waiting_payment": "Waiting for payment",
@@ -3126,13 +3138,59 @@
     "callPatient": "Call patient",
     "requested": "Reception has been asked to send the patient",
     "doctorRequested": "Requested by doctor",
-    "patientSent": "Patient on the way",
-    "markSent": "Mark patient sent",
-    "markedSent": "Marked as sent",
+    "patientSent": "Called — on the way",
+    "markSent": "Patient called",
+    "markedSent": "Marked as called",
     "createdAt": "Visit created at {time}",
     "openPatient": "Open patient",
     "collectNow": "Collect payment",
     "openBill": "Open bill",
-    "newPatient": "New patient"
+    "newPatient": "New patient",
+    "patientEntered": "Patient entered"
+  },
+  "billing": {
+    "addCustom": "Add custom service",
+    "custom": "Custom",
+    "defaultPrice": "Default price",
+    "visitPrice": "Price (this visit)",
+    "priceInvalid": "Enter a price of 0 or more.",
+    "discountInvalid": "Discount must be between 0 and {max}.",
+    "note": "Note",
+    "notePlaceholder": "Optional note for this service",
+    "customAdded": "Service added to the bill",
+    "customTitle": "Custom service",
+    "serviceName": "Service name",
+    "serviceNamePlaceholder": "e.g. Extra dressing",
+    "price": "Price",
+    "quantity": "Quantity",
+    "discount": "Discount",
+    "finalAmount": "Final amount",
+    "addCustomConfirm": "Add to bill",
+    "customHint": "Applies to this visit only. The service catalog is not changed."
+  },
+  "validation": {
+    "invalid": "This value is not valid.",
+    "serviceNameRequired": "Service name is required.",
+    "priceRequired": "Price is required.",
+    "priceMin": "Price must be 0 or more.",
+    "quantityRange": "Quantity must be a whole number from 1 to 100.",
+    "discountMin": "Discount must be 0 or more.",
+    "discountTooLarge": "Discount cannot be larger than the line amount.",
+    "server": {
+      "name": "Name is required.",
+      "full_name": "Full name is required.",
+      "price": "Enter a valid price.",
+      "quantity": "Enter a valid quantity.",
+      "discount": "Discount is not valid or exceeds your limit.",
+      "amount": "Enter a valid amount.",
+      "phone": "Enter a valid phone number.",
+      "email": "Enter a valid email address.",
+      "dob": "Enter a valid date of birth.",
+      "scheduled_at": "Choose a valid date and time.",
+      "doctor_id": "Choose a doctor.",
+      "patient_id": "Choose a patient.",
+      "method": "Choose a payment method.",
+      "reason": "A reason is required."
+    }
   }
 }

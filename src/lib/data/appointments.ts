@@ -1,7 +1,7 @@
 import "server-only"
 import { createClient } from "@/lib/supabase/server"
 import { addDaysIso, clinicDayRange, clinicToday } from "@/lib/dates"
-import type { AppointmentStatus, AppointmentWithRefs } from "@/types/db"
+import type { AppointmentStatus, AppointmentWithRefs, EncounterStatus, InvoiceStatus } from "@/types/db"
 
 export const APPOINTMENT_SELECT =
   "*, patient:patients(id, full_name, patient_code, phone, dob), doctor:doctors(id, display_name_en, display_name_ar, color), department:departments(id, code, name_en, name_ar)"
@@ -37,7 +37,26 @@ export async function getAppointments(q: AppointmentQuery): Promise<{ rows: Appo
     console.error(`[db] getAppointments: ${error.code}`)
     return { rows: [], total: 0 }
   }
-  return { rows: (data ?? []) as AppointmentWithRefs[], total: count ?? 0 }
+  const rows = (data ?? []) as AppointmentWithRefs[]
+  // What each appointment became (arrival, visit, payment) — one query for the page.
+  const ids = rows.filter((r) => r.status !== "scheduled" && r.status !== "cancelled" && r.status !== "rescheduled").map((r) => r.id)
+  if (ids.length) {
+    const { data: enc, error: encError } = await supabase
+      .from("encounters")
+      .select("appointment_id, status, arrived_at, invoices(status, balance_patient)")
+      .in("appointment_id", ids)
+    if (encError) console.error(`[db] getAppointments encounters: ${encError.code}`)
+    const byAppt = new Map((enc ?? []).map((e) => [e.appointment_id as string, e]))
+    for (const r of rows) {
+      const e = byAppt.get(r.id) as
+        | { status: EncounterStatus; arrived_at: string; invoices: { status: InvoiceStatus; balance_patient: number }[] | null }
+        | undefined
+      if (!e) continue
+      const inv = (e.invoices ?? []).find((i) => i.status !== "void")
+      r.visit = { status: e.status, arrived_at: e.arrived_at, paid: inv ? inv.status === "paid" || inv.status === "no_charge" || Number(inv.balance_patient) <= 0 : null, balance: inv ? Number(inv.balance_patient) : null }
+    }
+  }
+  return { rows, total: count ?? 0 }
 }
 
 export function dayWindow(offsetDays = 0) {

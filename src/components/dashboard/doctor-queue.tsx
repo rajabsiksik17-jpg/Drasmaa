@@ -60,7 +60,8 @@ function QueueItem({ e, index, onStart }: { e: QueueEncounter; index: number; on
         <p className="truncate text-xs text-muted-foreground">
           {e.patient?.patient_code}
           {e.patient?.dob ? ` · ${ageFromDob(e.patient.dob)}y` : ""}
-          {service ? ` · ${locale === "ar" ? service.name_ar : service.name_en}` : ""} · {formatTime(e.arrived_at, locale)}
+          {service ? ` · ${locale === "ar" ? service.name_ar : service.name_en}` : ""}
+          {e.appointment ? ` · ${te("bookedAt", { time: formatTime(e.appointment.scheduled_at, locale) })}` : ""} · {te("arrivedAt", { time: formatTime(e.arrived_at, locale) })}
           {e.source === "walk_in" ? ` · ${te("walkIn")}` : ""}
         </p>
       </div>

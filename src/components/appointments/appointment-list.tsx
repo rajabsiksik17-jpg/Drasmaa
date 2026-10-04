@@ -111,6 +111,7 @@ export function AppointmentList({
                   <td className="px-4 py-2.5">{refs.optionLabel("appointment_type", a.visit_type)}</td>
                   <td className="px-4 py-2.5">
                     <AppointmentStatusBadge status={a.status} />
+                    <VisitTrail appointment={a} />
                   </td>
                   <td className="px-4 py-2">
                     <AppointmentActions appointment={a} />
@@ -145,6 +146,7 @@ export function AppointmentList({
                   </div>
                   <AppointmentStatusBadge status={a.status} />
                 </div>
+                <VisitTrail appointment={a} />
                 <div className="mt-2 flex items-center justify-between gap-2">
                   <div className="text-sm">
                     <span className="font-semibold tabular-nums">{formatTime(a.scheduled_at, locale)}</span>
@@ -159,5 +161,24 @@ export function AppointmentList({
         </AnimatePresence>
       </ul>
     </>
+  )
+}
+
+/** Appointment → arrival → visit → payment, as small history marks. */
+function VisitTrail({ appointment: a }: { appointment: AppointmentWithRefs }) {
+  const t = useTranslations("appointments.trail")
+  const locale = useLocale()
+  const v = a.visit
+  if (!v) return null
+  const done = v.status === "checked_out"
+  return (
+    <p className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+      <span>✓ {t("arrived", { time: formatTime(v.arrived_at, locale) })}</span>
+      {(done || v.status === "awaiting_checkout") && <span>✓ {t("visitDone")}</span>}
+      {v.paid === true && <span className="text-emerald-700 dark:text-emerald-300">✓ {t("paid")}</span>}
+      {v.paid === false && v.balance != null && <span className="text-destructive">{t("due", { amount: v.balance.toFixed(3) })}</span>}
+      {done && <span>✓ {t("checkedOut")}</span>}
+      {v.status === "cancelled" && <span>{t("cancelled")}</span>}
+    </p>
   )
 }

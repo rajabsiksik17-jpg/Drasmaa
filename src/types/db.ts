@@ -301,6 +301,8 @@ export interface AppointmentWithRefs extends Appointment {
   patient: Pick<Patient, "id" | "full_name" | "patient_code" | "phone" | "dob"> | null
   doctor: Pick<Doctor, "id" | "display_name_en" | "display_name_ar" | "color"> | null
   department: Pick<Department, "id" | "code" | "name_en" | "name_ar"> | null
+  /** The clinic visit this appointment became (arrival / visit / payment), when it did. */
+  visit?: { status: EncounterStatus; arrived_at: string; paid: boolean | null; balance: number | null }
 }
 
 export const NOTIFICATION_TYPES = [
@@ -797,6 +799,10 @@ export interface InvoiceLine extends Versioned {
   quantity: number
   unit_price: number
   line_total: number
+  /** Catalog price when the line was added (null for custom services). */
+  default_price?: number | null
+  discount_amount?: number
+  notes?: string | null
   package_line_id: string | null
   source: string
   sort_order: number

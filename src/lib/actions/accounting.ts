@@ -51,14 +51,19 @@ export async function createPatientInvoice(patientId: string): Promise<ActionRes
   return ok({ id: data.id })
 }
 
-const addSchema = z.object({ invoiceId: z.uuid(), serviceId: z.uuid(), quantity: z.number().int().min(1).max(100).default(1) })
+const addSchema = z.object({
+  invoiceId: z.uuid(),
+  serviceId: z.uuid(),
+  quantity: z.number().int().min(1).max(100).default(1),
+  reason: z.string().max(300).nullable().optional(),
+})
 
 export async function addInvoiceService(input: z.input<typeof addSchema>): Promise<ActionResult<void>> {
   const auth = await authorize(P.accountingCreate, P.billingCharge)
   if (auth.error) return auth.error
   const parsed = addSchema.safeParse(input)
   if (!parsed.success) return fail("validation")
-  const supabase = await createClient()
+  const supabase = await createClient({ auditReason: parsed.data.reason })
   const { error } = await supabase.rpc("add_invoice_service", {
     p_invoice: parsed.data.invoiceId,
     p_service: parsed.data.serviceId,
@@ -73,24 +78,29 @@ const lineSchema = z.object({
   lineId: z.uuid(),
   quantity: z.number().int().min(1).max(100).optional(),
   unitPrice: z.number().min(0).max(1_000_000).optional(),
+  discount: z.number().min(0).max(1_000_000).optional(),
+  notes: z.string().trim().max(500).nullable().optional(),
   remove: z.boolean().optional(),
   reason: z.string().max(300).nullable().optional(),
 })
 
+const canOverridePrice = (permissions: string[]) =>
+  permissions.includes(P.billingPriceOverride) || permissions.includes(P.accountingEdit) || permissions.includes(P.pricingManage)
+
 /**
- * Change or remove a line. Changing a price away from the catalog needs
- * pricing.manage; once anything was paid, the database requires
- * accounting.edit and a reason (audited).
+ * Change or remove a line: quantity, the price for THIS visit (never the
+ * catalog), a line discount, notes. Price overrides need
+ * billing.price_override; discounts accounting.discount within the role
+ * limit; once anything was paid, accounting.edit and a reason. All audited.
  */
 export async function updateInvoiceLine(input: z.input<typeof lineSchema>): Promise<ActionResult<void>> {
   const auth = await authorize(P.accountingCreate, P.accountingEdit, P.billingCharge)
   if (auth.error) return auth.error
   const parsed = lineSchema.safeParse(input)
-  if (!parsed.success) return fail("validation")
+  if (!parsed.success) return fail("validation", parsed.error.issues.map((i) => String(i.path[0])))
   const v = parsed.data
-  if (v.unitPrice !== undefined && !auth.session.permissions.includes(P.pricingManage) && !auth.session.permissions.includes(P.accountingEdit)) {
-    return fail("forbidden")
-  }
+  if (v.unitPrice !== undefined && !canOverridePrice(auth.session.permissions)) return fail("forbidden")
+  if (v.discount !== undefined && v.discount > 0 && !auth.session.permissions.includes(P.accountingDiscount)) return fail("forbidden")
   const supabase = await createClient({ auditReason: v.reason })
   const { data: line } = await supabase.from("invoice_lines").select("invoice_id, package_line_id").eq("id", v.lineId).maybeSingle()
   if (!line) return fail("notFound")
@@ -99,10 +109,54 @@ export async function updateInvoiceLine(input: z.input<typeof lineSchema>): Prom
     ? await supabase.from("invoice_lines").delete().eq("id", v.lineId)
     : await supabase
         .from("invoice_lines")
-        .update({ ...(v.quantity !== undefined ? { quantity: v.quantity } : {}), ...(v.unitPrice !== undefined ? { unit_price: v.unitPrice } : {}) })
+        .update({
+          ...(v.quantity !== undefined ? { quantity: v.quantity } : {}),
+          ...(v.unitPrice !== undefined ? { unit_price: Math.round(v.unitPrice * 1000) / 1000 } : {}),
+          ...(v.discount !== undefined ? { discount_amount: Math.round(v.discount * 1000) / 1000 } : {}),
+          ...(v.notes !== undefined ? { notes: v.notes || null } : {}),
+        })
         .eq("id", v.lineId)
   if (error) return dbFail("updateInvoiceLine", error)
   refresh(line.invoice_id)
+  return ok(undefined)
+}
+
+const customSchema = z
+  .object({
+    invoiceId: z.uuid(),
+    name: z.string().trim().min(1, "required").max(160),
+    price: z.number({ message: "required" }).min(0, "priceMin").max(1_000_000),
+    quantity: z.number().int().min(1).max(100).default(1),
+    discount: z.number().min(0).max(1_000_000).default(0),
+    notes: z.string().trim().max(500).nullable().optional(),
+    reason: z.string().max(300).nullable().optional(),
+  })
+  .refine((v) => v.discount <= v.price * v.quantity, { path: ["discount"], message: "discountTooLarge" })
+
+/** A service that exists only on this visit / invoice (never added to the catalog). */
+export async function addCustomInvoiceLine(input: z.input<typeof customSchema>): Promise<ActionResult<void>> {
+  const auth = await authorize(P.accountingCreate, P.billingCharge)
+  if (auth.error) return auth.error
+  if (!canOverridePrice(auth.session.permissions)) return fail("forbidden")
+  const parsed = customSchema.safeParse(input)
+  if (!parsed.success) return fail("validation", parsed.error.issues.map((i) => String(i.path[0])))
+  const v = parsed.data
+  if (v.discount > 0 && !auth.session.permissions.includes(P.accountingDiscount)) return fail("forbidden")
+  const supabase = await createClient({ auditReason: v.reason })
+  const { data: last } = await supabase.from("invoice_lines").select("sort_order").eq("invoice_id", v.invoiceId).order("sort_order", { ascending: false }).limit(1).maybeSingle()
+  const { error } = await supabase.from("invoice_lines").insert({
+    invoice_id: v.invoiceId,
+    description_en: v.name,
+    description_ar: v.name,
+    quantity: v.quantity,
+    unit_price: Math.round(v.price * 1000) / 1000,
+    discount_amount: Math.round(v.discount * 1000) / 1000,
+    notes: v.notes || null,
+    source: "manual",
+    sort_order: (last?.sort_order ?? 0) + 1,
+  })
+  if (error) return dbFail("addCustomInvoiceLine", error)
+  refresh(v.invoiceId)
   return ok(undefined)
 }
 

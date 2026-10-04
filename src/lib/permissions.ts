@@ -37,6 +37,7 @@ export const P = {
   appointmentsOutsideHours: "appointments.outside_hours",
   encountersCreate: "encounters.create",
   billingCharge: "billing.charge",
+  billingPriceOverride: "billing.price_override",
   appointmentsReminders: "appointments.reminders",
   settingsManage: "settings.manage",
   usersManage: "users.manage",

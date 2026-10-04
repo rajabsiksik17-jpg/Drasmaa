@@ -5,7 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
 import { AnimatePresence, motion } from "motion/react"
-import { Ban, CheckCircle2, DoorOpen, Loader2, Plus, Printer, Receipt, RotateCcw, Save, ShieldCheck, Stethoscope, Trash2, UserRound, Wallet, X } from "lucide-react"
+import { Ban, CheckCircle2, DoorOpen, Loader2, Plus, Printer, Receipt, RotateCcw, Save, ShieldCheck, Stethoscope, UserRound, Wallet, X } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -16,17 +16,18 @@ import { NativeSelect } from "@/components/common/native-select"
 import { SectionCard } from "@/components/common/page"
 import { ReasonDialog } from "@/components/forms/correction-context"
 import { useCan, useRefs } from "@/components/app-context"
+import { BillLinesEditor } from "@/components/accounting/bill-lines-editor"
 import { EncounterStatusBadge } from "@/components/encounters/encounter-status"
 import { ExportMenu } from "@/components/documents/export-menu"
 import { InvoiceStatusBadge, Money } from "@/components/accounting/money"
 import { useActionError } from "@/hooks/use-action-error"
-import { addInvoiceService, recordPayments, refundPayment, updateInvoice, updateInvoiceLine, voidInvoice } from "@/lib/actions/accounting"
+import { recordPayments, refundPayment, updateInvoice, voidInvoice } from "@/lib/actions/accounting"
 import { setEncounterStatus } from "@/lib/actions/encounters"
 import { formatDateTime } from "@/lib/dates"
 import { P } from "@/lib/permissions"
 import { cn } from "@/lib/utils"
 import type { InvoiceBundle } from "@/lib/data/invoice"
-import type { InvoiceLine, PayMethod, PaymentType, Service } from "@/types/db"
+import type { PayMethod, PaymentType } from "@/types/db"
 import { useSafeTransition } from "@/hooks/use-safe-transition"
 
 type Insurer = { id: string; name_en: string; name_ar: string; default_coverage_percent: number | null; active: boolean }
@@ -39,17 +40,7 @@ const round3 = (n: number) => Math.round(n * 1000) / 1000
  * split → one or more payments → receipts. Totals are always computed by
  * the database; payments and refunds are permanent records.
  */
-export function InvoiceCheckout({
-  bundle,
-  services,
-  insurers,
-  specialPrices,
-}: {
-  bundle: InvoiceBundle
-  services: Service[]
-  insurers: Insurer[]
-  specialPrices: { service_id: string; insurance_company_id: string; price: number }[]
-}) {
+export function InvoiceCheckout({ bundle, insurers }: { bundle: InvoiceBundle; insurers: Insurer[] }) {
   const t = useTranslations("accounting")
   const locale = useLocale()
   const ar = locale === "ar"
@@ -64,7 +55,6 @@ export function InvoiceCheckout({
   const hasPayments = bundle.payments.length > 0
   const canCreate = can(P.accountingCreate) && !voided
   const canEditPaid = can(P.accountingEdit)
-  const lineEditable = canCreate && (!hasPayments || canEditPaid)
   const name = (x: { name_en: string; name_ar: string }) => (ar ? x.name_ar : x.name_en)
 
   // ---- invoice settings
@@ -102,32 +92,6 @@ export function InvoiceCheckout({
     })
   const withReason = (fn: (reason?: string) => void) => (hasPayments ? setAskReason(() => (r: string) => fn(r)) : fn())
 
-  // ---- services
-  const [serviceId, setServiceId] = useState("")
-  const priceFor = (s: Service) => {
-    if (inv.payment_type !== "cash" && s.insurance_eligible) {
-      const special = specialPrices.find((p) => p.service_id === s.id && p.insurance_company_id === inv.insurance_company_id)
-      return Number(special?.price ?? s.price_insurance ?? s.price_cash)
-    }
-    return Number(s.price_cash)
-  }
-  const addService = () =>
-    start(async () => {
-      if (!serviceId) return
-      const res = await addInvoiceService({ invoiceId: inv.id, serviceId, quantity: 1 })
-      if (!res.ok) return showError(res.error)
-      setServiceId("")
-      router.refresh()
-    })
-  const changeLine = (line: InvoiceLine, patch: { quantity?: number; unitPrice?: number; remove?: boolean }) =>
-    withReason((reason) =>
-      start(async () => {
-        const res = await updateInvoiceLine({ lineId: line.id, ...patch, reason: reason ?? null })
-        if (!res.ok) return showError(res.error)
-        router.refresh()
-      }),
-    )
-
   // ---- payments
   const defaultRows = (): PayRow[] => {
     const rows: PayRow[] = []
@@ -162,8 +126,6 @@ export function InvoiceCheckout({
   const [refund, setRefund] = useState<{ id: string; max: number; amount: string; reason: string } | null>(null)
   const [voidOpen, setVoidOpen] = useState(false)
 
-  const lines = bundle.lines.filter((l) => !l.package_line_id)
-  const components = (id: string) => bundle.lines.filter((l) => l.package_line_id === id)
   const refundedOf = useMemo(() => {
     const m = new Map<string, number>()
     for (const p of bundle.payments) if (p.refund_of_id) m.set(p.refund_of_id, (m.get(p.refund_of_id) ?? 0) + Number(p.amount))
@@ -205,108 +167,15 @@ export function InvoiceCheckout({
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="space-y-5">
-          <SectionCard title={t("services")} icon={Receipt} bodyClassName="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[560px] text-sm">
-                <thead className="bg-muted/40 text-xs text-muted-foreground">
-                  <tr>
-                    <th className="px-3 py-2 text-start font-medium">{t("service")}</th>
-                    <th className="w-20 px-2 py-2 text-start font-medium">{t("qty")}</th>
-                    <th className="w-32 px-2 py-2 text-end font-medium">{t("unitPrice")}</th>
-                    <th className="w-32 px-3 py-2 text-end font-medium">{t("amount")}</th>
-                    <th className="w-10" />
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {lines.map((l) => (
-                    <tr key={l.id} className="align-top">
-                      <td className="px-3 py-2">
-                        {ar ? l.description_ar : l.description_en}
-                        {l.source !== "manual" && <span className="ms-2 rounded bg-muted px-1.5 text-[10px] text-muted-foreground">{t(`sources.${l.source}`)}</span>}
-                        {components(l.id).length > 0 && (
-                          <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
-                            {components(l.id).map((x) => (
-                              <li key={x.id}>
-                                • {ar ? x.description_ar : x.description_en} × {x.quantity}
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </td>
-                      <td className="px-2 py-1.5">
-                        {lineEditable ? (
-                          <Input
-                            type="number"
-                            min={1}
-                            max={100}
-                            defaultValue={l.quantity}
-                            className="h-8 w-16"
-                            dir="ltr"
-                            onBlur={(e) => {
-                              const q = Math.max(1, Math.min(100, Math.round(Number(e.target.value) || 1)))
-                              if (q !== l.quantity) changeLine(l, { quantity: q })
-                            }}
-                          />
-                        ) : (
-                          l.quantity
-                        )}
-                      </td>
-                      <td className="px-2 py-1.5 text-end">
-                        {lineEditable && (can(P.pricingManage) || canEditPaid) ? (
-                          <Input
-                            type="number"
-                            min={0}
-                            step="0.001"
-                            defaultValue={l.unit_price}
-                            className="h-8 w-28 text-end"
-                            dir="ltr"
-                            onBlur={(e) => {
-                              const v = round3(Math.max(0, Number(e.target.value) || 0))
-                              if (v !== Number(l.unit_price)) changeLine(l, { unitPrice: v })
-                            }}
-                          />
-                        ) : (
-                          <Money value={l.unit_price} currency={c} />
-                        )}
-                      </td>
-                      <td className="px-3 py-2 text-end font-medium">
-                        <Money value={l.line_total} currency={c} />
-                      </td>
-                      <td className="px-1 py-1.5">
-                        {lineEditable && (
-                          <Button size="icon-sm" variant="ghost" className="text-destructive" aria-label={t("remove")} onClick={() => changeLine(l, { remove: true })}>
-                            <Trash2 />
-                          </Button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                  {lines.length === 0 && (
-                    <tr>
-                      <td colSpan={5} className="px-3 py-6 text-center text-muted-foreground">
-                        {t("noLines")}
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-            {canCreate && (!hasPayments || canEditPaid) && (
-              <div className="flex flex-wrap items-center gap-2 border-t p-3">
-                <NativeSelect value={serviceId} onChange={(e) => setServiceId(e.target.value)} className="min-w-56 flex-1" aria-label={t("addService")}>
-                  <option value="">{t("chooseService")}</option>
-                  {services.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {name(s)} — {s.billable ? priceFor(s).toFixed(3) : t("free")}
-                    </option>
-                  ))}
-                </NativeSelect>
-                <Button onClick={addService} disabled={!serviceId || pending}>
-                  {pending ? <Loader2 className="animate-spin" /> : <Plus />}
-                  {t("addService")}
-                </Button>
-              </div>
-            )}
+          <SectionCard title={t("services")} icon={Receipt} bodyClassName="p-3">
+            <BillLinesEditor
+              invoiceId={inv.id}
+              currency={c}
+              paymentType={inv.payment_type}
+              lines={bundle.lines}
+              editable={canCreate && (!hasPayments || canEditPaid)}
+              withReason={hasPayments ? (fn) => setAskReason(() => (r: string) => fn(r)) : undefined}
+            />
           </SectionCard>
 
           <SectionCard title={t("payments")} icon={Wallet} bodyClassName="p-0">
