@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
 import { History, Loader2, Package, Pencil, Plus, ShieldCheck, Tags } from "lucide-react"
@@ -20,8 +20,9 @@ import { saveInsuranceCoverage, saveInsurancePrice, savePackageItems, saveServic
 import { formatDateTime } from "@/lib/dates"
 import { cn } from "@/lib/utils"
 import type { Service, ServiceCategory } from "@/types/db"
+import { useSafeTransition } from "@/hooks/use-safe-transition"
 
-const CATEGORIES: ServiceCategory[] = ["consultation", "followup", "ultrasound", "investigation", "report", "certificate", "procedure", "treatment", "package", "other"]
+const CATEGORIES: ServiceCategory[] = ["registration", "consultation", "followup", "ultrasound", "investigation", "report", "certificate", "procedure", "treatment", "package", "other"]
 type Insurer = { id: string; name_en: string; name_ar: string; default_coverage_percent: number | null; active: boolean }
 
 const emptyService = (): Partial<Service> => ({
@@ -35,6 +36,8 @@ const emptyService = (): Partial<Service> => ({
   default_duration_minutes: null,
   appointment_type: null,
   auto_trigger: null,
+  requires_doctor: false,
+  requires_visit: false,
   notes: null,
   active: true,
 })
@@ -152,7 +155,7 @@ function CoverageCard({ insurers, canManage }: { insurers: Insurer[]; canManage:
   const locale = useLocale()
   const router = useRouter()
   const { showError } = useActionError()
-  const [, start] = useTransition()
+  const [, start] = useSafeTransition()
   return (
     <SectionCard title={t("coverage")} icon={ShieldCheck}>
       <p className="mb-3 text-sm text-muted-foreground">{t("coverageHint")}</p>
@@ -215,7 +218,7 @@ function ServiceEditor({
   const refs = useRefs()
   const router = useRouter()
   const { showError } = useActionError()
-  const [pending, start] = useTransition()
+  const [pending, start] = useSafeTransition()
   const [v, setV] = useState({ ...emptyService(), ...service })
   const [items, setItems] = useState(packageItems)
   const [history, setHistory] = useState<PriceHistoryRow[] | null>(null)
@@ -236,6 +239,8 @@ function ServiceEditor({
         default_duration_minutes: v.default_duration_minutes ? Number(v.default_duration_minutes) : null,
         appointment_type: v.appointment_type || null,
         auto_trigger: v.auto_trigger || null,
+        requires_doctor: !!v.requires_doctor,
+        requires_visit: !!v.requires_visit,
         notes: v.notes || null,
         active: !!v.active,
       })
@@ -331,7 +336,7 @@ function ServiceEditor({
               <Label htmlFor="sv-trigger">{t("autoTrigger")}</Label>
               <NativeSelect id="sv-trigger" value={v.auto_trigger ?? ""} disabled={ro} onChange={(e) => setV({ ...v, auto_trigger: (e.target.value || null) as Service["auto_trigger"] })}>
                 <option value="">—</option>
-                {(["ultrasound", "medical_report", "medical_certificate"] as const).map((x) => (
+                {(["registration", "ultrasound", "medical_report", "medical_certificate"] as const).map((x) => (
                   <option key={x} value={x}>
                     {t(`triggers.${x}`)}
                   </option>
@@ -340,6 +345,22 @@ function ServiceEditor({
             </div>
           </div>
           <p className="text-xs text-muted-foreground">{t("autoHint")}</p>
+          <div className="grid gap-2 rounded-lg border p-3">
+            <label className="flex items-center justify-between gap-2">
+              <span>
+                {t("requiresDoctor")}
+                <span className="block text-xs text-muted-foreground">{t("requiresDoctorHint")}</span>
+              </span>
+              <Switch checked={!!v.requires_doctor} disabled={ro} onCheckedChange={(c) => setV({ ...v, requires_doctor: c })} />
+            </label>
+            <label className="flex items-center justify-between gap-2">
+              <span>
+                {t("requiresVisit")}
+                <span className="block text-xs text-muted-foreground">{t("requiresVisitHint")}</span>
+              </span>
+              <Switch checked={!!v.requires_visit} disabled={ro} onCheckedChange={(c) => setV({ ...v, requires_visit: c })} />
+            </label>
+          </div>
 
           {v.category === "package" && (
             <div className="space-y-2 rounded-lg border p-3">
@@ -453,7 +474,7 @@ function InsurancePrices({
   const t = useTranslations("pricing")
   const locale = useLocale()
   const { showError } = useActionError()
-  const [, start] = useTransition()
+  const [, start] = useSafeTransition()
   return (
     <div className="space-y-2 rounded-lg border p-3">
       <p className="flex items-center gap-1.5 font-medium">

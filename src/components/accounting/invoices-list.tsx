@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
@@ -19,6 +19,7 @@ import { P } from "@/lib/permissions"
 import { cn } from "@/lib/utils"
 import type { RangeKey } from "@/lib/accounting/ranges"
 import type { InvoiceStatus } from "@/types/db"
+import { useSafeTransition } from "@/hooks/use-safe-transition"
 
 export interface InvoiceListRow {
   id: string
@@ -47,7 +48,7 @@ export function InvoicesList({ rows, range, status, q }: { rows: InvoiceListRow[
   const [search, setSearch] = useState(q)
   const [newOpen, setNewOpen] = useState(false)
   const [picked, setPicked] = useState<PickedPatient | null>(null)
-  const [pending, start] = useTransition()
+  const [pending, start] = useSafeTransition()
   const set = (patch: Record<string, string | null>) => {
     const next = new URLSearchParams(params)
     for (const [k, v] of Object.entries(patch)) {
@@ -83,7 +84,7 @@ export function InvoicesList({ rows, range, status, q }: { rows: InvoiceListRow[
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        {(["all", "unpaid", "paid", "no_charge", "void"] as const).map((s) => (
+        {(["all", "unpaid", "paid", "no_charge", "refunded", "void"] as const).map((s) => (
           <button
             key={s}
             onClick={() => set({ status: s === "all" ? null : s })}

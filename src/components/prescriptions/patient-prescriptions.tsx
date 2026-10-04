@@ -1,6 +1,6 @@
 "use client"
 
-import { useTransition } from "react"
+
 import { useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
 import { Loader2, Pill, Plus } from "lucide-react"
@@ -11,6 +11,7 @@ import { PrescriptionEditor, type PrescriptionWithItems } from "@/components/pre
 import { useActionError } from "@/hooks/use-action-error"
 import { createPrescription } from "@/lib/actions/prescriptions"
 import { P } from "@/lib/permissions"
+import { useSafeTransition } from "@/hooks/use-safe-transition"
 
 /** Patient → Prescriptions. A new prescription outside a visit (e.g. renewal) is possible. */
 export function PatientPrescriptions({ patientId, prescriptions }: { patientId: string; prescriptions: PrescriptionWithItems[] }) {
@@ -18,7 +19,7 @@ export function PatientPrescriptions({ patientId, prescriptions }: { patientId: 
   const can = useCan()
   const router = useRouter()
   const { showError } = useActionError()
-  const [pending, start] = useTransition()
+  const [pending, start] = useSafeTransition()
   const standaloneDraft = prescriptions.find((p) => p.status === "draft" && !p.visit_id)
   return (
     <SectionCard

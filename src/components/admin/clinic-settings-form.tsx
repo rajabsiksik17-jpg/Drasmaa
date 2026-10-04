@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
 import { Building2, CalendarCog, FileText, Hash, Loader2, Phone, ShieldCheck } from "lucide-react"
@@ -14,13 +14,14 @@ import { useActionError } from "@/hooks/use-action-error"
 import { saveClinicSettings } from "@/lib/actions/admin"
 import { useRefs } from "@/components/app-context"
 import type { ClinicSettings } from "@/types/db"
+import { useSafeTransition } from "@/hooks/use-safe-transition"
 
 export function ClinicSettingsForm({ settings }: { settings: ClinicSettings }) {
   const t = useTranslations("admin")
   const router = useRouter()
   const { showError } = useActionError()
   const refs = useRefs()
-  const [pending, start] = useTransition()
+  const [pending, start] = useSafeTransition()
   const [version, setVersion] = useState(settings.version)
   const [v, setV] = useState({
     clinic_name_en: settings.clinic_name_en,

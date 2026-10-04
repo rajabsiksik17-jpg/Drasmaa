@@ -11,7 +11,7 @@ const money = z.number().min(0).max(1_000_000)
 const serviceSchema = z.object({
   id: z.uuid().optional(),
   expectedVersion: z.number().int().optional(),
-  category: z.enum(["consultation", "followup", "ultrasound", "investigation", "report", "certificate", "procedure", "treatment", "package", "other"]),
+  category: z.enum(["registration", "consultation", "followup", "ultrasound", "investigation", "report", "certificate", "procedure", "treatment", "package", "other"]),
   name_en: z.string().trim().min(1).max(160),
   name_ar: z.string().trim().min(1).max(160),
   price_cash: money,
@@ -20,7 +20,9 @@ const serviceSchema = z.object({
   insurance_eligible: z.boolean(),
   default_duration_minutes: z.number().int().min(5).max(480).nullable(),
   appointment_type: z.string().regex(/^[a-z][a-z0-9_]*$/).nullable(),
-  auto_trigger: z.enum(["ultrasound", "medical_report", "medical_certificate"]).nullable(),
+  auto_trigger: z.enum(["registration", "ultrasound", "medical_report", "medical_certificate"]).nullable(),
+  requires_doctor: z.boolean().optional(),
+  requires_visit: z.boolean().optional(),
   notes: z.string().max(1000).nullable(),
   active: z.boolean(),
 })

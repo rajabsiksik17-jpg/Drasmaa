@@ -7,14 +7,15 @@ import type { ClinicSettings, Department, Doctor, DropdownOption, InsuranceCompa
 /** Configurable reference data (small tables), loaded once per request. */
 export const getReferenceData = cache(async (): Promise<ReferenceData> => {
   const supabase = await createClient()
-  const [doctors, departments, insurance, options, investigationTypes, settings, services] = await Promise.all([
+  const [doctors, departments, insurance, options, investigationTypes, settings, services, doctorHours] = await Promise.all([
     supabase.from("doctors").select("*").order("sort_order").order("display_name_en"),
     supabase.from("departments").select("*").order("sort_order"),
     supabase.from("insurance_companies").select("*").order("sort_order").order("name_en"),
     supabase.from("dropdown_options").select("*").order("category").order("sort_order"),
     supabase.from("investigation_types").select("*").order("sort_order"),
     supabase.from("clinic_settings").select("*").eq("id", 1).maybeSingle(),
-    supabase.from("services").select("id, code, category, name_en, name_ar, price_cash, price_insurance, billable, insurance_eligible, appointment_type, default_duration_minutes, active, sort_order").order("sort_order"),
+    supabase.from("services").select("id, code, category, name_en, name_ar, price_cash, price_insurance, billable, insurance_eligible, appointment_type, auto_trigger, requires_doctor, default_duration_minutes, active, sort_order").order("sort_order"),
+    supabase.from("doctor_working_hours").select("doctor_id, weekday, start_time, end_time").order("weekday").order("start_time"),
   ])
   const s = (settings.data ?? {}) as Partial<ClinicSettings>
   return {
@@ -24,6 +25,7 @@ export const getReferenceData = cache(async (): Promise<ReferenceData> => {
     options: (options.data ?? []) as DropdownOption[],
     investigationTypes: (investigationTypes.data ?? []) as InvestigationType[],
     services: (services.data ?? []) as ReferenceData["services"],
+    doctorHours: (doctorHours.data ?? []) as ReferenceData["doctorHours"],
     settings: {
       clinic_name_en: s.clinic_name_en ?? "Clinic",
       clinic_name_ar: s.clinic_name_ar ?? "العيادة",
@@ -36,6 +38,10 @@ export const getReferenceData = cache(async (): Promise<ReferenceData> => {
       max_upload_mb: s.max_upload_mb ?? 20,
       logo_path: s.logo_path ?? null,
       currency: s.currency ?? "JOD",
+      collect_payment_before_consultation: s.collect_payment_before_consultation ?? true,
+      enforce_working_hours: s.enforce_working_hours ?? true,
+      working_days: s.working_days ?? [0, 1, 2, 3, 4, 5, 6],
+      payment_methods: s.payment_methods ?? ["cash", "card", "transfer", "other"],
     },
   }
 })

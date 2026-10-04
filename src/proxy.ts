@@ -61,10 +61,12 @@ export async function proxy(request: NextRequest) {
   }
   const next = () => NextResponse.next({ request: { headers: requestHeaders } })
 
+  // Development-only visual preview with fictional fixture data (the page
+  // itself returns 404 in production builds; nothing there reads real data).
+  if (process.env.NODE_ENV === "development" && pathname.startsWith("/dev/")) return finish(next())
+
   if (!isSupabaseConfigured) {
     if (pathname.startsWith("/setup")) return finish(next())
-    // Development-only visual preview of the paper forms (404 in production).
-    if (process.env.NODE_ENV === "development" && pathname.startsWith("/dev/")) return finish(next())
     return NextResponse.redirect(new URL("/setup", request.url))
   }
 

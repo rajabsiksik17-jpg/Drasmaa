@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useRef, useState, useTransition } from "react"
+import { useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
 import { motion } from "motion/react"
@@ -44,6 +44,7 @@ import {
 import { VARIABLE_GROUPS, renderTemplate, sampleVariables, unknownVariables, type TemplateVariable } from "@/lib/messaging/templates"
 import { formatDateTime } from "@/lib/dates"
 import { cn } from "@/lib/utils"
+import { useSafeTransition } from "@/hooks/use-safe-transition"
 
 const CATEGORIES = ["appointment", "medical_followup", "pregnancy", "fertility", "ivf", "general", "congratulations", "administrative", "documents", "custom"] as const
 const PURPOSES = [
@@ -112,7 +113,7 @@ export function TemplatesManager({
   const [query, setQuery] = useState("")
   const [showArchived, setShowArchived] = useState(false)
   const [editing, setEditing] = useState<{ draft: Draft; template: MessageTemplate | null } | null>(null)
-  const [, start] = useTransition()
+  const [, start] = useSafeTransition()
 
   const list = useMemo(
     () =>
@@ -273,8 +274,8 @@ function TemplateEditor({
   const { message, showError } = useActionError()
   const [d, setD] = useState<Draft>(initial)
   const [lang, setLang] = useState<"ar" | "en">(initial.default_language)
-  const [saving, startSave] = useTransition()
-  const [testing, startTest] = useTransition()
+  const [saving, startSave] = useSafeTransition()
+  const [testing, startTest] = useSafeTransition()
   const [testTo, setTestTo] = useState(userEmail)
   const [versions, setVersions] = useState<TemplateVersion[] | null>(null)
   const bodyRef = useRef<HTMLTextAreaElement>(null)
@@ -330,7 +331,7 @@ function TemplateEditor({
       toast.success(t("testSent", { to: testTo }))
     })
 
-  const [, start] = useTransition()
+  const [, start] = useSafeTransition()
   const openVersions = () =>
     start(async () => {
       if (!template) return

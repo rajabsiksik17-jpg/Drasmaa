@@ -1,6 +1,6 @@
 "use client"
 
-import { useTransition } from "react"
+
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
@@ -14,6 +14,7 @@ import { createPatientInvoice } from "@/lib/actions/accounting"
 import { formatDateTime } from "@/lib/dates"
 import { P } from "@/lib/permissions"
 import type { InvoiceStatus } from "@/types/db"
+import { useSafeTransition } from "@/hooks/use-safe-transition"
 
 export interface PatientInvoiceRow {
   id: string
@@ -36,7 +37,7 @@ export function PatientBilling({ patientId, invoices }: { patientId: string; inv
   const can = useCan()
   const router = useRouter()
   const { showError } = useActionError()
-  const [pending, start] = useTransition()
+  const [pending, start] = useSafeTransition()
   const live = invoices.filter((i) => i.status !== "void")
   const c = invoices[0]?.currency ?? "JOD"
   const sum = (f: (i: PatientInvoiceRow) => number) => live.reduce((s, i) => s + Number(f(i)), 0)

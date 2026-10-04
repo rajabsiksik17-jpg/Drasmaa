@@ -23,6 +23,8 @@ export interface Role extends Versioned {
   is_system: boolean
   active: boolean
   sort_order: number
+  /** Maximum discount percent this role may apply (null = unlimited). */
+  max_discount_percent: number | null
 }
 
 export interface Permission {
@@ -72,6 +74,22 @@ export interface Doctor extends Versioned {
   color: string | null
   active: boolean
   sort_order: number
+  title_en?: string | null
+  title_ar?: string | null
+  phone?: string | null
+  email?: string | null
+  license_number?: string | null
+  photo_path?: string | null
+  signature_path?: string | null
+}
+
+export interface DoctorWorkingHours {
+  id: string
+  doctor_id: string
+  /** 0 = Sunday … 6 = Saturday */
+  weekday: number
+  start_time: string
+  end_time: string
 }
 
 export interface InsuranceCompany extends Versioned {
@@ -140,6 +158,10 @@ export interface ClinicSettings extends Versioned {
   receipt_prefix: string
   report_prefix: string
   prescription_prefix: string
+  collect_payment_before_consultation: boolean
+  enforce_working_hours: boolean
+  working_days: number[]
+  payment_methods: ("cash" | "card" | "transfer" | "other")[]
 }
 
 export interface Patient extends Versioned {
@@ -270,6 +292,7 @@ export interface Appointment extends Versioned {
   source_visit_id: string | null
   service_id: string | null
   no_charge: boolean
+  outside_working_hours: boolean
 }
 
 export interface AppointmentWithRefs extends Appointment {
@@ -352,6 +375,7 @@ export interface Visit extends Versioned {
   patient_id: string
   doctor_id: string | null
   appointment_id: string | null
+  encounter_id?: string | null
   department_id: string | null
   visit_type: VisitType
   status: VisitStatus
@@ -672,6 +696,8 @@ export interface TimelineEvent {
     | "invoice"
     | "payment"
     | "generated_document"
+    | "clinic_visit"
+    | "checked_out"
   occurred_at: string
   entity_type: string
   entity_id: string
@@ -685,6 +711,7 @@ export interface TimelineEvent {
 // Pricing & accounting
 // ---------------------------------------------------------------------
 export type ServiceCategory =
+  | "registration"
   | "consultation"
   | "followup"
   | "ultrasound"
@@ -708,13 +735,15 @@ export interface Service extends Versioned {
   insurance_eligible: boolean
   default_duration_minutes: number | null
   appointment_type: string | null
-  auto_trigger: "ultrasound" | "medical_report" | "medical_certificate" | null
+  auto_trigger: "registration" | "ultrasound" | "medical_report" | "medical_certificate" | null
+  requires_doctor: boolean
+  requires_visit: boolean
   notes: string | null
   active: boolean
   sort_order: number
 }
 
-export type InvoiceStatus = "open" | "partially_paid" | "paid" | "no_charge" | "void"
+export type InvoiceStatus = "open" | "partially_paid" | "paid" | "no_charge" | "refunded" | "void"
 export type PaymentType = "cash" | "insurance" | "mixed"
 
 export interface Invoice extends Versioned {
@@ -723,6 +752,7 @@ export interface Invoice extends Versioned {
   patient_id: string
   appointment_id: string | null
   visit_id: string | null
+  encounter_id: string | null
   doctor_id: string | null
   status: InvoiceStatus
   payment_type: PaymentType
@@ -734,6 +764,8 @@ export interface Invoice extends Versioned {
   discount_value: number
   discount_amount: number
   discount_reason: string | null
+  discount_by: string | null
+  discount_at: string | null
   total: number
   insurance_amount: number
   patient_amount: number
@@ -800,11 +832,13 @@ export interface CashRegister extends Versioned {
 // ---------------------------------------------------------------------
 // Drawings, prescriptions, reports
 // ---------------------------------------------------------------------
+// Point-based shapes keep transforms baked into their points; boxes and text
+// rotate around their top-left corner (degrees, clockwise).
 export type DrawingShape =
   | { id: string; type: "pen" | "marker" | "highlight"; points: number[]; color: string; size: number }
   | { id: string; type: "line" | "arrow"; points: [number, number, number, number]; color: string; size: number }
-  | { id: string; type: "circle" | "rect"; x: number; y: number; w: number; h: number; color: string; size: number }
-  | { id: string; type: "text"; x: number; y: number; text: string; color: string; size: number }
+  | { id: string; type: "circle" | "rect"; x: number; y: number; w: number; h: number; color: string; size: number; rotation?: number }
+  | { id: string; type: "text"; x: number; y: number; text: string; color: string; size: number; rotation?: number }
 
 export type ClinicalContext = "gynecology" | "fertility" | "pregnancy" | "other"
 
@@ -819,6 +853,7 @@ export interface MedicalImage extends Versioned {
   width: number
   height: number
   title: string | null
+  original_filename?: string | null
   status: "active" | "archived"
 }
 
@@ -837,6 +872,34 @@ export interface MedicalDrawing extends Versioned {
   preview_path: string | null
   saved_versions: number
   status: "active" | "archived"
+  archived_at?: string | null
+  archived_by?: string | null
+  archive_reason?: string | null
+}
+
+// ---------------------------------------------------------------------
+// Clinic visits (encounters): the patient's real presence in the clinic
+// ---------------------------------------------------------------------
+export type EncounterStatus = "waiting_payment" | "waiting_doctor" | "with_doctor" | "awaiting_checkout" | "checked_out" | "cancelled"
+
+export interface Encounter extends Versioned {
+  id: string
+  patient_id: string
+  doctor_id: string | null
+  appointment_id: string | null
+  service_id: string | null
+  reason: string | null
+  source: "walk_in" | "appointment" | "doctor"
+  status: EncounterStatus
+  prepay: boolean
+  queue_date: string
+  arrived_at: string
+  sent_to_doctor_at: string | null
+  with_doctor_at: string | null
+  finished_at: string | null
+  checked_out_at: string | null
+  cancelled_at: string | null
+  status_reason: string | null
 }
 
 export interface Medication extends Versioned {

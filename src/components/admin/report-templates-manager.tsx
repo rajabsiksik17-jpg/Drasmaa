@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
 import { FileSignature, Loader2, Lock, Plus } from "lucide-react"
@@ -17,6 +17,7 @@ import { useActionError } from "@/hooks/use-action-error"
 import { saveReportTemplate } from "@/lib/actions/reports"
 import { cn } from "@/lib/utils"
 import type { ReportTemplate } from "@/types/db"
+import { useSafeTransition } from "@/hooks/use-safe-transition"
 
 type Draft = Omit<ReportTemplate, "id" | "code" | "is_system" | "sort_order" | "version" | "created_at" | "updated_at" | "created_by" | "updated_by"> & { id?: string }
 
@@ -41,7 +42,7 @@ export function ReportTemplatesManager({ templates }: { templates: ReportTemplat
   const router = useRouter()
   const { showError } = useActionError()
   const [editing, setEditing] = useState<Draft | null>(null)
-  const [pending, start] = useTransition()
+  const [pending, start] = useSafeTransition()
   const save = () =>
     start(async () => {
       if (!editing) return

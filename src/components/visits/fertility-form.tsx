@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
@@ -31,6 +31,7 @@ import { linkConsentDocument } from "@/lib/actions/documents"
 import { daysBetween, clinicToday, formatDate, formatDateTime, isoToClinicParts } from "@/lib/dates"
 import type { VisitBundle } from "@/lib/data/visit"
 import type { FertilityHusbandData, FertilityVisit, FertilityWifeData, IvfConsent, Patient } from "@/types/db"
+import { useSafeTransition } from "@/hooks/use-safe-transition"
 
 const PLANS = [
   { value: "oi", label: "O/I" },
@@ -61,7 +62,7 @@ export function FertilityForm({
   const router = useRouter()
   const locked = useRecordLocked()
   const { showError } = useActionError()
-  const [pending, start] = useTransition()
+  const [pending, start] = useSafeTransition()
   const [upload, setUpload] = useState<null | "sfa" | { consentId: string }>(null)
 
   const fv = useRecord({ table: "fertility_visits", keyField: "visit_id", row: data.visit as FertilityVisit, readOnly: !canEdit })

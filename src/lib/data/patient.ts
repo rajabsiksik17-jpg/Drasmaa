@@ -4,7 +4,9 @@ import { notFound } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { getSession, hasPermission } from "@/lib/auth/session"
 import { dayWindow } from "@/lib/data/appointments"
+import { getOpenEncounter, type QueueEncounter } from "@/lib/data/encounters"
 import { P } from "@/lib/permissions"
+import { gestationalAge } from "@/lib/medical/calculations"
 import type { Appointment, FertilityCase, FertilityCycle, Patient, PatientAllergy, PatientHusband, PregnancyCase } from "@/types/db"
 
 export interface PatientContext {
@@ -16,6 +18,10 @@ export interface PatientContext {
   activeFertilityCase: FertilityCase | null
   activePregnancy: PregnancyCase | null
   activeCycle: Pick<FertilityCycle, "id" | "cycle_number" | "fertility_case_id" | "started_at"> | null
+  /** Today's open clinic visit (queue status + bill), if the patient is here. */
+  openEncounter: QueueEncounter | null
+  /** Gestational age of the active pregnancy (computed on the server: no hydration drift). */
+  pregnancyGa: { weeks: number; days: number } | null
 }
 
 /** Everything the patient header needs; cached per request (layout + page share it). */
@@ -28,7 +34,7 @@ export const getPatientContext = cache(async (patientId: string): Promise<Patien
 
   const can = (c: (typeof P)[keyof typeof P]) => !!session && hasPermission(session, c)
   const today = dayWindow(0)
-  const [husband, allergy, todayAppt, fcase, pcase, cycle] = await Promise.all([
+  const [husband, allergy, todayAppt, fcase, pcase, cycle, openEncounter] = await Promise.all([
     supabase.from("patient_husbands").select("*").eq("patient_id", patientId).maybeSingle(),
     can(P.allergyView) || can(P.medicalView)
       ? supabase.from("patient_allergies").select("*").eq("patient_id", patientId).maybeSingle()
@@ -61,6 +67,7 @@ export const getPatientContext = cache(async (patientId: string): Promise<Patien
           .limit(1)
           .maybeSingle()
       : Promise.resolve({ data: null }),
+    can(P.appointmentsView) || can(P.encountersCreate) || can(P.visitsCreate) || can(P.accountingView) ? getOpenEncounter(patientId) : Promise.resolve(null),
   ])
 
   return {
@@ -72,5 +79,7 @@ export const getPatientContext = cache(async (patientId: string): Promise<Patien
     activeFertilityCase: (fcase.data as FertilityCase | null) ?? null,
     activePregnancy: (pcase.data as PregnancyCase | null) ?? null,
     activeCycle: (cycle.data as PatientContext["activeCycle"]) ?? null,
+    openEncounter,
+    pregnancyGa: gestationalAge((pcase.data as PregnancyCase | null)?.lmp ?? null),
   }
 })

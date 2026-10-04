@@ -46,6 +46,16 @@ export const newPatientSchema = z
     insurance_company_id: z.string().optional().nullable(),
     // Final choice is made by the database (single active doctor rule).
     assigned_doctor_id: z.string().optional().nullable(),
+    // "The patient is here now": open the first clinic visit in the same transaction.
+    visit: z
+      .object({
+        doctor_id: z.string().optional().nullable(),
+        service_id: z.string().optional().nullable(),
+        reason: z.string().trim().max(500).optional().nullable(),
+        no_charge: z.boolean().optional(),
+      })
+      .nullable()
+      .optional(),
   })
   .superRefine((v, ctx) => {
     if (v.payment_method === "insurance" && !v.insurance_company_id) {

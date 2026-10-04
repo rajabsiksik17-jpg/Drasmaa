@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState, useTransition } from "react"
+import { useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
 import { Loader2, Pencil, Pill, Plus, Search } from "lucide-react"
@@ -15,6 +15,7 @@ import { useActionError } from "@/hooks/use-action-error"
 import { saveMedication } from "@/lib/actions/prescriptions"
 import { cn } from "@/lib/utils"
 import type { Medication } from "@/types/db"
+import { useSafeTransition } from "@/hooks/use-safe-transition"
 
 const FIELDS = [
   ["name_en", "ltr"],
@@ -38,7 +39,7 @@ export function MedicationsManager({ medications }: { medications: Medication[] 
   const { showError } = useActionError()
   const [q, setQ] = useState("")
   const [editing, setEditing] = useState<(Partial<Record<Key, string | null>> & { id?: string; active: boolean }) | null>(null)
-  const [pending, start] = useTransition()
+  const [pending, start] = useSafeTransition()
   const list = useMemo(() => {
     const s = q.trim().toLowerCase()
     return s ? medications.filter((m) => `${m.name_en} ${m.name_ar ?? ""} ${m.generic_name ?? ""} ${m.brand_name ?? ""}`.toLowerCase().includes(s)) : medications

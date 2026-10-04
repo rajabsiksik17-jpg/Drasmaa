@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState, useTransition } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
 import { AnimatePresence, motion } from "motion/react"
@@ -28,6 +28,7 @@ import { formatDateTime } from "@/lib/dates"
 import { P } from "@/lib/permissions"
 import { cn } from "@/lib/utils"
 import type { Medication, Prescription, PrescriptionItem } from "@/types/db"
+import { useSafeTransition } from "@/hooks/use-safe-transition"
 
 export type PrescriptionWithItems = Prescription & { items: PrescriptionItem[] }
 
@@ -216,7 +217,7 @@ export function PrescriptionEditor({
   const refs = useRefs()
   const router = useRouter()
   const { showError } = useActionError()
-  const [pending, start] = useTransition()
+  const [pending, start] = useSafeTransition()
   const [cancelling, setCancelling] = useState<string | null>(null)
   const canWrite = can(P.prescriptionsCreate)
   const draft = prescriptions.find((p) => p.status === "draft")

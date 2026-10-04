@@ -60,6 +60,10 @@ beforeAll(async () => {
   reception = await createUser(db, { email: "desk@clinic.test", role: "receptionist", name: "Desk" })
   doctorId = (await one<{ id: string }>("select id from doctors where profile_id = $1", [doctor])).id
   artDept = (await one<{ id: string }>("select id from departments where code = 'art'")).id
+  // These suites book at arbitrary times; working hours have their own tests.
+  await db.query("update clinic_settings set enforce_working_hours = false where id = 1")
+  // The first-visit registration fee has its own suite (clinic-workflow.test.ts).
+  await db.query("update services set active = false where code = 'registration'")
   insuranceId = (
     await one<{ id: string }>("insert into insurance_companies (code, name_en, name_ar, default_coverage_percent) values ('nat', 'National', 'الوطنية', 70) returning id")
   ).id
@@ -92,8 +96,13 @@ describe("automatic billing from clinical actions", () => {
 
   it("supports no-charge appointments", async () => {
     const p = await newPatient("Free Patient")
-    const a = await bookToday(p.id)
-    await db.query("update appointments set no_charge = true where id = $1", [a.id])
+    const at = new Date(Date.now() + 86400_000 * 5).toISOString()
+    const a = await db.as(reception, () =>
+      one<{ id: string }>(
+        "insert into appointments (patient_id, doctor_id, department_id, visit_type, scheduled_at, status, no_charge) values ($1, $2, $3, 'gynecology', $4, 'checked_in', true) returning id",
+        [p.id, doctorId, artDept, at],
+      ),
+    )
     const invoiceId = await db.as(reception, async () => (await one<{ id: string }>("select public.ensure_appointment_invoice($1) as id", [a.id])).id)
     const inv = await one<{ total: string; status: string }>("select total, status from invoices where id = $1", [invoiceId])
     expect(num(inv.total)).toBe(0)
@@ -112,8 +121,15 @@ describe("payments, discounts, refunds", () => {
   })
 
   it("only authorized users apply discounts; totals are computed in the database", async () => {
-    await expect(db.as(reception, () => db.query("update invoices set discount_type = 'percent', discount_value = 10 where id = $1", [invoiceId]))).rejects.toThrow(/discount/)
-    await db.as(admin, () => db.query("update invoices set discount_type = 'percent', discount_value = 10, total = 1 where id = $1", [invoiceId]))
+    // Receptionists: limited discounts, always with a reason.
+    await expect(db.as(reception, () => db.query("update invoices set discount_type = 'percent', discount_value = 10 where id = $1", [invoiceId]))).rejects.toThrow(/reason/)
+    await expect(
+      db.as(reception, () => db.query("update invoices set discount_type = 'percent', discount_value = 20, discount_reason = 'Staff family' where id = $1", [invoiceId])),
+    ).rejects.toThrow(/limit/)
+    await db.as(admin, () => db.query("update invoices set discount_type = 'percent', discount_value = 10, discount_reason = 'Loyal patient', total = 1 where id = $1", [invoiceId]))
+    const who = await one<{ discount_by: string; discount_at: string | null }>("select discount_by, discount_at from invoices where id = $1", [invoiceId])
+    expect(who.discount_by).toBe(admin)
+    expect(who.discount_at).not.toBeNull()
     const inv = await one<{ subtotal: string; discount_amount: string; total: string; balance_patient: string }>("select * from invoices where id = $1", [invoiceId])
     expect([num(inv.subtotal), num(inv.discount_amount), num(inv.total), num(inv.balance_patient)]).toEqual([50, 5, 45, 45])
   })
@@ -205,7 +221,9 @@ describe("daily cash register", () => {
     expect(num(s.v.revenue)).toBeGreaterThan(0)
     expect(Array.isArray(s.v.by_service)).toBe(true)
     await expect(db.as(doctor, () => db.query("select public.accounting_summary(current_date, current_date)"))).rejects.toThrow(/Not allowed/)
-    expect(await db.as(doctor, () => rows("select id from invoices"))).toHaveLength(0)
+    // Doctors see only the bills of clinic visits (to complete them), never payments.
+    expect(await db.as(doctor, () => rows("select id from invoices where encounter_id is null"))).toHaveLength(0)
+    expect(await db.as(doctor, () => rows("select id from payments"))).toHaveLength(0)
   })
 })
 

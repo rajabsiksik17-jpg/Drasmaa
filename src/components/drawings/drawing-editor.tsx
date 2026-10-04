@@ -6,6 +6,8 @@ import { useLocale, useTranslations } from "next-intl"
 import {
   ArrowUpRight,
   Circle,
+  MousePointer2,
+  X,
   Eraser,
   Hand,
   Highlighter,
@@ -82,7 +84,12 @@ export function DrawingEditor({
   const [notes, setNotes] = useState(drawing.notes ?? "")
   const [undo, setUndo] = useState<DrawingShape[][]>([])
   const [redo, setRedo] = useState<DrawingShape[][]>([])
-  const [tool, setTool] = useState<Tool>("pen")
+  const [tool, setToolState] = useState<Tool>("pen")
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const setTool = (next: Tool) => {
+    setToolState(next)
+    if (next !== "select") setSelectedId(null)
+  }
   const [color, setColor] = useState(COLORS[0])
   const [size, setSize] = useState(SIZES[1])
   const [status, setStatus] = useState<SaveStatus>("idle")
@@ -157,7 +164,21 @@ export function DrawingEditor({
   )
   useRegisterTracker(tracker)
 
+  // Selected object: move / resize / rotate (from the stage) or delete — each one undoable.
+  const updateShape = (next: DrawingShape) => commit(shapes.map((s) => (s.id === next.id ? next : s)))
+  const deleteSelected = () => {
+    if (!selectedId) return
+    commit(shapes.filter((s) => s.id !== selectedId))
+    setSelectedId(null)
+  }
+  const selected = shapes.find((s) => s.id === selectedId) ?? null
+  const recolorSelected = (c: string) => {
+    setColor(c)
+    if (selected) commit(shapes.map((s) => (s.id === selected.id ? { ...s, color: c } : s)))
+  }
+
   const doUndo = () => {
+    setSelectedId(null)
     const prev = undo.at(-1)
     if (!prev) return
     setUndo(undo.slice(0, -1))
@@ -167,6 +188,7 @@ export function DrawingEditor({
     schedule()
   }
   const doRedo = () => {
+    setSelectedId(null)
     const next = redo.at(-1)
     if (!next) return
     setRedo(redo.slice(0, -1))
@@ -175,6 +197,24 @@ export function DrawingEditor({
     latest.current = { ...latest.current, shapes: next }
     schedule()
   }
+
+  useEffect(() => {
+    if (readOnly) return
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null
+      if (target && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return
+      if ((e.key === "Delete" || e.key === "Backspace") && selectedId) {
+        e.preventDefault()
+        deleteSelected()
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
+        e.preventDefault()
+        if (e.shiftKey) doRedo()
+        else doUndo()
+      } else if (e.key === "Escape") setSelectedId(null)
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  })
 
   const addText = () => {
     if (!textAt || !textDraft.trim()) return setTextAt(null)
@@ -194,6 +234,7 @@ export function DrawingEditor({
   }
 
   const tools: { value: Tool; icon: typeof PenLine; label: string }[] = [
+    { value: "select", icon: MousePointer2, label: t("tools.select") },
     { value: "pen", icon: PenLine, label: t("tools.pen") },
     { value: "marker", icon: Brush, label: t("tools.marker") },
     { value: "highlight", icon: Highlighter, label: t("tools.highlight") },
@@ -218,7 +259,7 @@ export function DrawingEditor({
             <button
               key={c}
               type="button"
-              onClick={() => setColor(c)}
+              onClick={() => recolorSelected(c)}
               aria-label={c}
               aria-pressed={color === c}
               className={cn("size-6 rounded-full border-2 transition", color === c ? "scale-110 border-primary" : "border-border")}
@@ -241,6 +282,7 @@ export function DrawingEditor({
           <span className="mx-1 h-6 w-px bg-border" />
           <IconBtn label={t("undo")} icon={Undo2} onClick={doUndo} disabled={undo.length === 0} />
           <IconBtn label={t("redo")} icon={Redo2} onClick={doRedo} disabled={redo.length === 0} />
+          <IconBtn label={t("deleteSelected")} icon={X} onClick={deleteSelected} disabled={!selectedId} />
           <IconBtn label={t("clear")} icon={Trash2} onClick={() => commit([])} disabled={shapes.length === 0} />
           <span className="mx-1 h-6 w-px bg-border" />
           <IconBtn label={t("zoomIn")} icon={ZoomIn} onClick={zoomIn} />
@@ -274,8 +316,14 @@ export function DrawingEditor({
           color={color}
           size={size}
           readOnly={readOnly}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+          onUpdate={updateShape}
           onAdd={(s) => commit([...shapes, s])}
-          onErase={(ids) => commit(shapes.filter((s) => !ids.includes(s.id)))}
+          onErase={(ids) => {
+            commit(shapes.filter((s) => !ids.includes(s.id)))
+            if (selectedId && ids.includes(selectedId)) setSelectedId(null)
+          }}
           onTextRequest={(at) => {
             setTextDraft("")
             setTextAt(at)

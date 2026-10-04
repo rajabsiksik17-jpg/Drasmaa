@@ -1,6 +1,6 @@
 "use client"
 
-import { useTransition } from "react"
+
 import { useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
 import { Laptop, Loader2, X } from "lucide-react"
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { useActionError } from "@/hooks/use-action-error"
 import { revokeTrustedDevice } from "@/lib/actions/security"
 import { formatDate, formatDateTime } from "@/lib/dates"
+import { useSafeTransition } from "@/hooks/use-safe-transition"
 
 export interface TrustedDeviceRow {
   id: string
@@ -23,7 +24,7 @@ export function TrustedDevices({ devices }: { devices: TrustedDeviceRow[] }) {
   const locale = useLocale()
   const router = useRouter()
   const { message } = useActionError()
-  const [pending, start] = useTransition()
+  const [pending, start] = useSafeTransition()
   if (devices.length === 0) return <p className="text-sm text-muted-foreground">{t("noTrusted")}</p>
   return (
     <ul className="divide-y">

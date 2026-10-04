@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useTransition } from "react"
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
 
@@ -13,6 +13,7 @@ import { useActionError } from "@/hooks/use-action-error"
 import { clinicToday, formatDate } from "@/lib/dates"
 import { cn } from "@/lib/utils"
 import type { Investigation, InvestigationResult } from "@/types/db"
+import { useSafeTransition } from "@/hooks/use-safe-transition"
 
 interface Entry {
   id: string | null
@@ -196,7 +197,7 @@ export function VisitInvestigations({
   const locked = useRecordLocked()
   const reason = useCorrectionReason()
   const { showError } = useActionError()
-  const [pending, start] = useTransition()
+  const [pending, start] = useSafeTransition()
   const types = refs.investigationTypes.filter((x) => x.active && x.contexts.includes(context))
   const byType = new Map(investigations.map((i) => [i.type_code, i]))
   const editable = canEdit && !locked

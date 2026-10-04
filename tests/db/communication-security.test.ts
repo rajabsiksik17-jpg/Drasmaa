@@ -27,6 +27,8 @@ beforeAll(async () => {
   reception = await createUser(db, { email: "desk@clinic.test", role: "receptionist", name: "Desk" })
   doctorId = (await one<{ id: string }>("select id from doctors where profile_id = $1", [doctor])).id
   artDept = (await one<{ id: string }>("select id from departments where code = 'art'")).id
+  // These suites book at arbitrary times; working hours have their own tests.
+  await db.query("update clinic_settings set enforce_working_hours = false where id = 1")
   patientId = (
     await db.as(reception, () =>
       one<{ id: string }>("insert into patients (full_name, phone) values ('Sara Ahmad', '0791234567') returning id"),

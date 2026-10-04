@@ -1,6 +1,6 @@
 "use client"
 
-import { useOptimistic, useTransition } from "react"
+import { useOptimistic } from "react"
 import Link from "next/link"
 import { useLocale, useTranslations } from "next-intl"
 import { AlarmClock, BellRing, Lock, Mail, MessageCircle, MonitorSmartphone } from "lucide-react"
@@ -10,6 +10,7 @@ import { SectionCard } from "@/components/common/page"
 import { useActionError } from "@/hooks/use-action-error"
 import { saveNotificationEvent, saveReminderRule } from "@/lib/actions/security"
 import { cn } from "@/lib/utils"
+import { useSafeTransition } from "@/hooks/use-safe-transition"
 
 export interface EventTypeRow {
   code: string
@@ -38,7 +39,7 @@ export function NotificationSettings({ events, rules, emailReady }: { events: Ev
   const tn = useTranslations("notifications")
   const locale = useLocale()
   const { message } = useActionError()
-  const [, start] = useTransition()
+  const [, start] = useSafeTransition()
   const [eventState, setEvent] = useOptimistic(events, (state, patch: Partial<EventTypeRow> & { code: string }) =>
     state.map((e) => (e.code === patch.code ? { ...e, ...patch } : e)),
   )

@@ -1,6 +1,9 @@
 import { arrowHead, box, strokeStyle } from "@/lib/drawing/shapes"
 import type { DrawingShape } from "@/types/db"
 
+/** Same rotation as the editor: degrees, around the shape's top-left corner. */
+const rotate = (deg: number | undefined, x: number, y: number) => (deg ? `rotate(${deg} ${x} ${y})` : undefined)
+
 /**
  * Vector rendering of an annotated image: the untouched original image (or
  * clinic diagram) underneath and the doctor's annotation layer on top.
@@ -68,16 +71,29 @@ export function DrawingSvg({
             )
           case "rect": {
             const b = box(s)
-            return <rect key={s.id} x={b.x} y={b.y} width={b.w} height={b.h} fill="none" stroke={s.color} strokeWidth={s.size} />
+            return <rect key={s.id} x={b.x} y={b.y} width={b.w} height={b.h} fill="none" stroke={s.color} strokeWidth={s.size} transform={rotate(s.rotation, b.x, b.y)} />
           }
           case "circle": {
             const b = box(s)
-            return <ellipse key={s.id} cx={b.x + b.w / 2} cy={b.y + b.h / 2} rx={b.w / 2} ry={b.h / 2} fill="none" stroke={s.color} strokeWidth={s.size} />
+            return (
+              <ellipse
+                key={s.id}
+                cx={b.x + b.w / 2}
+                cy={b.y + b.h / 2}
+                rx={b.w / 2}
+                ry={b.h / 2}
+                fill="none"
+                stroke={s.color}
+                strokeWidth={s.size}
+                transform={rotate(s.rotation, b.x, b.y)}
+              />
+            )
           }
           case "text":
             return (
               <text
                 key={s.id}
+                transform={rotate(s.rotation, s.x, s.y)}
                 x={s.x}
                 y={s.y + s.size}
                 fill={s.color}

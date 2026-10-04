@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useTransition } from "react"
+import { useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
 import { ImageIcon, Loader2, Trash2, Upload } from "lucide-react"
@@ -9,13 +9,14 @@ import { Button } from "@/components/ui/button"
 import { SectionCard } from "@/components/common/page"
 import { useActionError } from "@/hooks/use-action-error"
 import { removeClinicLogo, uploadClinicLogo } from "@/lib/actions/admin"
+import { useSafeTransition } from "@/hooks/use-safe-transition"
 
 /** Primary and secondary logos used on every generated document. */
 export function LogoUploader({ primary, secondary }: { primary: string | null; secondary: string | null }) {
   const t = useTranslations("admin.center")
   const router = useRouter()
   const { showError } = useActionError()
-  const [pending, start] = useTransition()
+  const [pending, start] = useSafeTransition()
   const input = useRef<HTMLInputElement>(null)
   const slot = useRef<"primary" | "secondary">("primary")
   const pick = (s: "primary" | "secondary") => {

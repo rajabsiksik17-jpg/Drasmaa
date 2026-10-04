@@ -29,6 +29,7 @@ const TONE: Record<InvoiceStatus, string> = {
   partially_paid: "bg-sky-500/12 text-sky-700 dark:text-sky-300",
   paid: "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300",
   no_charge: "bg-muted text-muted-foreground",
+  refunded: "bg-violet-500/12 text-violet-700 dark:text-violet-300",
   void: "bg-destructive/12 text-destructive",
 }
 

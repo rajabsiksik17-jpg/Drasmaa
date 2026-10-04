@@ -36,6 +36,11 @@ export type ErrorCode =
   | "invalidEmail"
   | "pdfFailed"
   | "registerClosed"
+  | "outsideHours"
+  | "discountLimit"
+  | "paymentMethodDisabled"
+  | "schemaOutdated"
+  | "inUse"
   | "unexpected"
 
 export interface ActionError {
@@ -69,6 +74,9 @@ const HINTS: Record<string, ErrorCode> = {
   PREGNANCY_CASE_REQUIRED: "pregnancyCaseRequired",
   VISIT_CANCELLED: "visitCancelled",
   REGISTER_CLOSED: "registerClosed",
+  OUTSIDE_HOURS: "outsideHours",
+  DISCOUNT_LIMIT: "discountLimit",
+  PAYMENT_METHOD_DISABLED: "paymentMethodDisabled",
 }
 
 export function mapDbError(error: PgLikeError | null | undefined): ActionError {
@@ -76,8 +84,11 @@ export function mapDbError(error: PgLikeError | null | undefined): ActionError {
   const hint = error.hint ?? ""
   if (HINTS[hint]) {
     const fields = hint === "MISSING_FIELDS" && error.details ? error.details.split(",").filter(Boolean) : undefined
+    if (hint === "DISCOUNT_LIMIT" && error.details) return { code: "discountLimit", detail: error.details }
     return fields ? { code: HINTS[hint], fields } : { code: HINTS[hint] }
   }
+  // The database is older than the application (migrations not applied).
+  if (error.code && SCHEMA_CODES.has(error.code)) return { code: "schemaOutdated" }
   switch (error.code) {
     case "23P01":
       return { code: "doubleBooking" }
@@ -85,6 +96,8 @@ export function mapDbError(error: PgLikeError | null | undefined): ActionError {
       return { code: "duplicate" }
     case "23503":
       return { code: "invalidReference" }
+    case "23502":
+      return { code: "missingFields" }
     case "23514":
     case "22P02":
     case "22007":
@@ -102,7 +115,7 @@ export function mapDbError(error: PgLikeError | null | undefined): ActionError {
 }
 
 // PostgREST codes meaning "the database schema is older than this app".
-const SCHEMA_CODES = new Set(["PGRST202", "PGRST204", "42703", "42883"])
+const SCHEMA_CODES = new Set(["PGRST202", "PGRST204", "PGRST205", "42703", "42883", "42P01"])
 
 /**
  * Server-side log of the real failure. `message` is always logged (it names

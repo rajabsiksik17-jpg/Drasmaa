@@ -1,13 +1,13 @@
 "use client"
 
-import { useEffect, useMemo, useState, useTransition } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
 import { Controller, useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { useQuery } from "@tanstack/react-query"
-import { CalendarPlus, Loader2 } from "lucide-react"
+import { AlertTriangle, CalendarPlus, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import {
@@ -30,6 +30,7 @@ import { useActionError } from "@/hooks/use-action-error"
 import { createAppointment, getBusySlots, getPatientPaymentDefaults, rescheduleAppointment } from "@/lib/actions/appointments"
 import { addDaysIso, clinicDateTimeToIso, clinicToday, isoToClinicParts } from "@/lib/dates"
 import { cn } from "@/lib/utils"
+import { useSafeTransition } from "@/hooks/use-safe-transition"
 
 const schema = z
   .object({
@@ -44,6 +45,7 @@ const schema = z
     insurance_company_id: z.string().optional(),
     service_id: z.string().optional(),
     no_charge: z.boolean().optional(),
+    outside_working_hours: z.boolean().optional(),
   })
   .superRefine((v, ctx) => {
     if (v.payment_method === "insurance" && !v.insurance_company_id) {
@@ -53,17 +55,30 @@ const schema = z
 
 type FormValues = z.infer<typeof schema>
 
-function buildSlots(start: string, end: string, step: number) {
-  const toMin = (s: string) => {
-    const [h, m] = s.split(":").map(Number)
-    return h * 60 + m
-  }
+const toMin = (s: string) => {
+  const [h, m] = s.slice(0, 5).split(":").map(Number)
+  return h * 60 + m
+}
+const toTime = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`
+
+/** Working periods of a doctor on a date: own schedule, else clinic hours / days. */
+function workingPeriods(refs: ReturnType<typeof useRefs>, doctorId: string, date: string): [number, number][] {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return []
+  const weekday = new Date(`${date}T12:00:00Z`).getUTCDay()
+  const own = refs.doctorHours.filter((h) => h.doctor_id === doctorId)
+  if (own.length) return own.filter((h) => h.weekday === weekday).map((h) => [toMin(h.start_time), toMin(h.end_time)])
+  if (!refs.settings.working_days.includes(weekday)) return []
+  return [[toMin(refs.settings.working_hours_start), toMin(refs.settings.working_hours_end)]]
+}
+
+function buildSlots(periods: [number, number][], step: number, duration: number) {
   const out: string[] = []
-  for (let m = toMin(start); m + step <= toMin(end); m += step) {
-    out.push(`${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`)
-  }
+  for (const [from, to] of periods) for (let m = from; m + duration <= to; m += step) out.push(toTime(m))
   return out
 }
+
+const withinPeriods = (periods: [number, number][], time: string, duration: number) =>
+  /^\d{2}:\d{2}$/.test(time) && periods.some(([from, to]) => toMin(time) >= from && toMin(time) + duration <= to)
 
 export interface AppointmentDialogProps {
   open: boolean
@@ -85,7 +100,7 @@ export function AppointmentDialog({ open, onOpenChange, patient: fixedPatient, r
   const { message } = useActionError()
   const [patient, setPatient] = useState<PickedPatient | null>(fixedPatient ?? null)
   const [patientError, setPatientError] = useState(false)
-  const [pending, startTransition] = useTransition()
+  const [pending, startTransition] = useSafeTransition()
 
   const ownDoctor = refs.doctors.find((d) => d.id === session.doctorId)
   const initial: FormValues = useMemo(() => {
@@ -117,10 +132,13 @@ export function AppointmentDialog({ open, onOpenChange, patient: fixedPatient, r
   }, [reschedule, defaults, ownDoctor, refs.settings.appointment_slot_minutes])
 
   const form = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: initial })
-  const [doctorId, date, paymentMethod, duration, time] = useWatch({
+  const [doctorId, date, paymentMethod, duration, time, outside] = useWatch({
     control: form.control,
-    name: ["doctor_id", "date", "payment_method", "duration_minutes", "time"],
+    name: ["doctor_id", "date", "payment_method", "duration_minutes", "time", "outside_working_hours"],
   })
+  const can = useCan()
+  const enforce = refs.settings.enforce_working_hours
+  const mayGoOutside = can(P.appointmentsOutsideHours)
 
   // Callers mount this dialog only while it is open, so every opening starts
   // from fresh defaults (no reset effect needed).
@@ -156,15 +174,10 @@ export function AppointmentDialog({ open, onOpenChange, patient: fixedPatient, r
     enabled: open && !!doctorId && /^\d{4}-\d{2}-\d{2}$/.test(date),
   })
 
-  const slots = useMemo(
-    () =>
-      buildSlots(
-        refs.settings.working_hours_start.slice(0, 5),
-        refs.settings.working_hours_end.slice(0, 5),
-        refs.settings.appointment_slot_minutes,
-      ),
-    [refs.settings],
-  )
+  const periods = useMemo(() => workingPeriods(refs, doctorId, date), [refs, doctorId, date])
+  const slotStep = refs.settings.appointment_slot_minutes
+  const slots = useMemo(() => buildSlots(periods, slotStep, duration || slotStep), [periods, slotStep, duration])
+  const timeOutside = !!time && !withinPeriods(periods, time, duration || slotStep)
 
   const isTaken = (time: string) => {
     if (!busy.data) return false
@@ -183,6 +196,12 @@ export function AppointmentDialog({ open, onOpenChange, patient: fixedPatient, r
       setPatientError(true)
       return
     }
+    // Outside the working hours only as an explicit, permitted decision.
+    if (enforce && timeOutside && !values.outside_working_hours) {
+      form.setError("time", { message: "outsideHours" })
+      toast.error(t("outsideHoursBlocked"))
+      return
+    }
     startTransition(async () => {
       const res = reschedule
         ? await rescheduleAppointment({
@@ -192,6 +211,7 @@ export function AppointmentDialog({ open, onOpenChange, patient: fixedPatient, r
             doctor_id: values.doctor_id,
             duration_minutes: values.duration_minutes,
             notes: values.notes || null,
+            outside_working_hours: enforce && timeOutside && !!values.outside_working_hours,
           })
         : await createAppointment({
             patient_id: patient!.id,
@@ -207,9 +227,10 @@ export function AppointmentDialog({ open, onOpenChange, patient: fixedPatient, r
             source_visit_id: sourceVisitId ?? null,
             service_id: values.service_id || null,
             no_charge: !!values.no_charge,
+            outside_working_hours: enforce && timeOutside && !!values.outside_working_hours,
           })
       if (!res.ok) {
-        toast.error(message(res.error))
+        toast.error(message(res.error, reschedule ? "rescheduleAppointment" : "createAppointment"))
         if (res.error.code === "doubleBooking") void busy.refetch()
         return
       }
@@ -320,6 +341,9 @@ export function AppointmentDialog({ open, onOpenChange, patient: fixedPatient, r
                 <div className={cn("grid max-h-44 grid-cols-4 gap-1.5 overflow-y-auto rounded-lg border p-2 sm:grid-cols-6", err("time") && "border-destructive")}>
                   {!doctorId && <p className="col-span-full p-2 text-center text-xs text-muted-foreground">{t("pickDoctorFirst")}</p>}
                   {doctorId && busy.isLoading && <Loader2 className="col-span-full mx-auto my-3 size-4 animate-spin text-muted-foreground" />}
+                  {doctorId && !busy.isLoading && slots.length === 0 && (
+                    <p className="col-span-full p-2 text-center text-xs text-muted-foreground">{t("noWorkingHours")}</p>
+                  )}
                   {doctorId && !busy.isLoading && slots.map((s) => {
                     const taken = isTaken(s)
                     const past = isPast(s)
@@ -345,10 +369,28 @@ export function AppointmentDialog({ open, onOpenChange, patient: fixedPatient, r
                 </div>
               )}
             />
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               <span>{t("customTime")}</span>
-              <Input type="time" className="h-7 w-28" value={time} onChange={(e) => form.setValue("time", e.target.value, { shouldValidate: true })} />
+              <Input type="time" className="h-8 w-28" value={time} onChange={(e) => form.setValue("time", e.target.value, { shouldValidate: true })} />
+              {enforce && mayGoOutside && (
+                <label className="flex items-center gap-1.5 text-foreground">
+                  <input type="checkbox" {...form.register("outside_working_hours")} className="size-4 accent-amber-600" />
+                  {t("allowOutside")}
+                </label>
+              )}
             </div>
+            {enforce && timeOutside && (
+              <p
+                role="alert"
+                className={cn(
+                  "flex items-start gap-2 rounded-lg border px-3 py-2 text-xs",
+                  outside ? "border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-200" : "border-destructive/40 bg-destructive/5 text-destructive",
+                )}
+              >
+                <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+                {outside ? t("outsideWarning") : mayGoOutside ? t("outsideNeedsTick") : t("outsideNotAllowed")}
+              </p>
+            )}
           </div>
 
           {!reschedule && <ServiceField form={form} />}

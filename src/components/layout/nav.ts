@@ -1,6 +1,8 @@
 import {
   Bell,
   Calculator,
+  ClipboardList,
+  Wallet,
   FileSignature,
   Pill,
   Tags,
@@ -42,6 +44,7 @@ export interface NavItem {
 
 export const MAIN_NAV: NavItem[] = [
   { href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard },
+  { href: "/today", labelKey: "today", icon: ClipboardList, permissions: [P.encountersCreate, P.visitsCreate, P.accountingCreate] },
   { href: "/patients", labelKey: "patients", icon: Users, permissions: [P.patientsView] },
   { href: "/appointments", labelKey: "appointments", icon: CalendarDays, permissions: [P.appointmentsView], exact: true },
   { href: "/appointments?tab=tomorrow", labelKey: "tomorrow", icon: CalendarClock, permissions: [P.appointmentsView] },
@@ -60,6 +63,7 @@ export const ADMIN_NAV: NavItem[] = [
   { href: "/admin/insurance", labelKey: "insurance", icon: ShieldPlus, permissions: [P.settingsManage], group: "clinic" },
   { href: "/admin/options", labelKey: "options", icon: ListChecks, permissions: [P.settingsManage], group: "clinic" },
   { href: "/admin/pricing", labelKey: "pricing", icon: Tags, permissions: [P.pricingManage], group: "clinic" },
+  { href: "/admin/billing", labelKey: "billingSettings", icon: Wallet, permissions: [P.settingsManage], group: "clinic" },
   { href: "/admin/medications", labelKey: "medications", icon: Pill, permissions: [P.medicationsManage], group: "clinic" },
   { href: "/admin/report-templates", labelKey: "reportTemplates", icon: FileSignature, permissions: [P.reportsEdit], group: "communication" },
   { href: "/admin/email", labelKey: "email", icon: Mail, permissions: [P.settingsEmailView, P.settingsEmailManage], group: "communication" },

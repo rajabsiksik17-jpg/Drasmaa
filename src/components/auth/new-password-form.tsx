@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
 import { Loader2 } from "lucide-react"
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { changePassword } from "@/lib/actions/account"
+import { useSafeTransition } from "@/hooks/use-safe-transition"
 
 export function NewPasswordForm() {
   const t = useTranslations("auth")
@@ -16,7 +17,7 @@ export function NewPasswordForm() {
   const [password, setPassword] = useState("")
   const [confirm, setConfirm] = useState("")
   const [error, setError] = useState<string | null>(null)
-  const [pending, start] = useTransition()
+  const [pending, start] = useSafeTransition()
 
   return (
     <form

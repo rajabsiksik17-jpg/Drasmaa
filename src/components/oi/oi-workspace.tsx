@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
@@ -26,6 +26,7 @@ import { useActionError } from "@/hooks/use-action-error"
 import { saveRecord } from "@/lib/actions/records"
 import { formatDate, formatDateTime, isoToClinicParts } from "@/lib/dates"
 import type { CycleBundle } from "@/lib/data/cycle"
+import { useSafeTransition } from "@/hooks/use-safe-transition"
 
 export function OiWorkspace({
   patientId,
@@ -60,7 +61,7 @@ function Toolbar({ patientId, bundle, canEdit }: { patientId: string; bundle: Cy
   const router = useRouter()
   const registry = useSaveRegistry()
   const { showError } = useActionError()
-  const [pending, start] = useTransition()
+  const [pending, start] = useSafeTransition()
   const [confirm, setConfirm] = useState<null | "completed" | "cancelled">(null)
   const c = bundle.cycle
 

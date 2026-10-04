@@ -58,7 +58,9 @@
     "accounting": "Accounting",
     "pricing": "Pricing & services",
     "medications": "Medications",
-    "reportTemplates": "Report templates"
+    "reportTemplates": "Report templates",
+    "today": "Today's visits",
+    "billingSettings": "Billing & workflow"
   },
   "topbar": {
     "menu": "Open menu",
@@ -162,7 +164,26 @@
     "invalidPhone": "This phone number is not valid for WhatsApp.",
     "invalidEmail": "This email address is not valid.",
     "pdfFailed": "The PDF could not be generated. Please try again.",
-    "registerClosed": "The cash register for this day is closed. Ask an administrator to add an adjustment."
+    "registerClosed": "The cash register for this day is closed. Ask an administrator to add an adjustment.",
+    "outsideHours": "This time is outside the configured working hours. Tick “Allow outside working hours” (if you are allowed) or choose another time.",
+    "discountLimit": "The discount is higher than your role allows (maximum {detail}%).",
+    "paymentMethodDisabled": "This payment method is not enabled in the billing settings.",
+    "schemaOutdated": "The database needs an update. Ask the administrator to apply the latest database migrations.",
+    "inUse": "This record is used by existing data and cannot be deleted. Deactivate it instead.",
+    "actionFailed": "The action could not be completed. Your data was kept — please try again.",
+    "checkConnection": "Check the internet connection and try again.",
+    "op": {
+      "createPatient": "Could not create the patient file. Please try again.",
+      "createVisit": "Could not create the visit. Please try again.",
+      "startVisit": "Could not open the medical visit. Please try again.",
+      "recordPayment": "The payment could not be recorded. Nothing was charged — please try again.",
+      "uploadImage": "The image could not be uploaded. Please try again.",
+      "createAppointment": "Could not book the appointment. Please try again.",
+      "rescheduleAppointment": "Could not reschedule the appointment. Please try again.",
+      "saveUser": "Could not save the user. Please try again.",
+      "createUser": "Could not create the user. Please try again.",
+      "saveDoctor": "Could not save the doctor. Please try again."
+    }
   },
   "fields": {
     "blood_pressure": "Blood pressure",
@@ -188,7 +209,9 @@
     "department_id": "Department",
     "visit_type": "Visit type",
     "date": "Date",
-    "time": "Time"
+    "time": "Time",
+    "service_id": "Service",
+    "working_hours": "Working hours"
   },
   "status": {
     "scheduled": "Scheduled",
@@ -391,7 +414,13 @@
     "service": "Service / reason",
     "serviceAuto": "Automatic: {name}",
     "noService": "No billable service",
-    "noCharge": "No charge"
+    "noCharge": "No charge",
+    "allowOutside": "Allow outside working hours",
+    "noWorkingHours": "No working hours on this day for this doctor.",
+    "outsideHoursBlocked": "This appointment is outside the configured working hours.",
+    "outsideNeedsTick": "This time is outside the configured working hours. Tick “Allow outside working hours” to book it anyway.",
+    "outsideNotAllowed": "This time is outside the configured working hours and your role may not book outside them.",
+    "outsideWarning": "This appointment is outside the configured working hours. It will be saved and marked as such."
   },
   "patients": {
     "patients": "Patients",
@@ -454,7 +483,15 @@
     "doctorAuto": "Assigned automatically (only active doctor)",
     "assignedDoctor": "Assigned doctor",
     "noDoctor": "— Not assigned —",
-    "noActiveDoctor": "There is no active doctor. The patient will be created without an assigned doctor."
+    "noActiveDoctor": "There is no active doctor. The patient will be created without an assigned doctor.",
+    "collectAfter": "The bill is collected after the doctor (post-payment workflow).",
+    "collectNext": "Next: collect the first-visit bill, then the patient joins the doctor's queue.",
+    "firstVisitTotal": "First visit total",
+    "nothingToPay": "Nothing to pay.",
+    "visitNow": "Visit now",
+    "visitNowHint": "Opens today's visit with the registration fee and the visit service as separate lines.",
+    "visitNowLabel": "The patient is here now — create the first visit",
+    "visitReason": "Reason for visit"
   },
   "patient": {
     "age": "Age {age}",
@@ -487,7 +524,10 @@
       "message": "Message",
       "share": "Share",
       "addReport": "Add report",
-      "checkout": "Checkout / payment"
+      "checkout": "Checkout / payment",
+      "collect": "Collect payment",
+      "continueVisit": "Continue visit",
+      "visitNow": "Create visit now"
     },
     "tabs": {
       "label": "Patient file sections",
@@ -508,7 +548,16 @@
       "drawings": "Images & drawings",
       "reports": "Reports",
       "billing": "Billing"
-    }
+    },
+    "ageLabel": "Age",
+    "allergyShort": "Allergy",
+    "appointmentToday": "Appointment today",
+    "details": "Details",
+    "fertilityCase": "Fertility case",
+    "gaShort": "Pregnant · {weeks}w {days}d",
+    "husbandLabel": "Husband",
+    "oiCycle": "O/I cycle {number}",
+    "pregnant": "Pregnant"
   },
   "personal": {
     "wife": "Wife",
@@ -589,7 +638,9 @@
       "medical_report": "Medical report",
       "invoice": "Invoice",
       "payment": "Payment",
-      "generated_document": "Document generated"
+      "generated_document": "Document generated",
+      "clinic_visit": "Arrived at the clinic",
+      "checked_out": "Checked out"
     },
     "subtype": {
       "fertility": "Fertility",
@@ -618,7 +669,10 @@
       "referral": "Referral",
       "international": "International",
       "followup": "Follow-up",
-      "custom": "Custom"
+      "custom": "Custom",
+      "walk_in": "Walk-in",
+      "appointment": "Appointment",
+      "doctor": "Registered by doctor"
     },
     "status": {
       "scheduled": "Scheduled",
@@ -644,7 +698,12 @@
       "refund": "Refund",
       "generated": "Generated",
       "deleted": "Deleted",
-      "expired": "Expired"
+      "expired": "Expired",
+      "waiting_payment": "Waiting for payment",
+      "waiting_doctor": "Waiting for doctor",
+      "awaiting_checkout": "Ready for checkout",
+      "checked_out": "Checked out",
+      "refunded": "Refunded"
     }
   },
   "visits": {
@@ -1368,6 +1427,67 @@
       "logoSaved": "Logo saved",
       "upload": "Upload",
       "remove": "Remove"
+    },
+    "actions": "Actions",
+    "activeYes": "Active",
+    "deactivate": "Deactivate",
+    "reactivate": "Reactivate",
+    "deleteUser": "Delete",
+    "deleteUserHint": "Only accounts that never worked in the system can be deleted. Accounts with history are kept and should be deactivated.",
+    "deleteUserTitle": "Delete {name}?",
+    "editUser": "Edit user",
+    "editUserHint": "Changes apply immediately. The login e-mail is changed in the sign-in system too.",
+    "inactive": "Inactive",
+    "searchUsers": "Search users…",
+    "userDeactivated": "User deactivated and signed out",
+    "userDeleted": "User deleted",
+    "userInUse": "This user has history in the system (records, payments, audit). Deactivate the account instead.",
+    "userReactivated": "User reactivated",
+    "doctorProfile": {
+      "active": "Active",
+      "addShift": "Add hours",
+      "cancel": "Cancel",
+      "cash": "Cash",
+      "catalog": "Catalog",
+      "clinicHours": "Clinic hours",
+      "color": "Calendar color",
+      "dayOff": "Not working",
+      "deactivate": "Deactivate",
+      "deactivated": "Doctor deactivated",
+      "delete": "Delete",
+      "deleteHint": "Only doctors without appointments, visits, bills or patients can be deleted. Otherwise deactivate the doctor.",
+      "deleteTitle": "Delete {name}?",
+      "deleted": "Doctor deleted",
+      "department": "Department",
+      "edit": "Edit profile",
+      "email": "E-mail",
+      "hint": "Profile, weekly schedule and own prices. Changes apply to new appointments and new bills only.",
+      "inUse": "This doctor has history (appointments, visits, bills or patients). Deactivate instead.",
+      "inactive": "Inactive",
+      "insurance": "Insurance",
+      "license": "License / registration no.",
+      "loginAccount": "Login account",
+      "nameAr": "Name (Arabic)",
+      "nameEn": "Name (English)",
+      "newDoctor": "New doctor",
+      "ownSchedule": "{count, plural, one {# shift} other {# shifts}} / week",
+      "phone": "Phone",
+      "photo": "Photo",
+      "photoSaved": "Photo saved",
+      "pricesHint": "Leave empty to use the catalog price. Existing invoices keep the price they were charged with.",
+      "reactivate": "Reactivate",
+      "reactivated": "Doctor reactivated",
+      "remove": "Remove",
+      "save": "Save",
+      "saveSchedule": "Save schedule",
+      "saved": "Saved",
+      "scheduleHint": "Without any hours the doctor follows the clinic working hours. Appointment slots and the outside-hours rule use this schedule.",
+      "specialty": "Specialty",
+      "tabPrices": "Own prices",
+      "tabProfile": "Profile",
+      "tabSchedule": "Schedule",
+      "titleAr": "Title (Arabic)",
+      "titleEn": "Title (English)"
     }
   },
   "audit": {
@@ -2148,7 +2268,8 @@
       "rect": "Rectangle",
       "text": "Text",
       "eraser": "Eraser (tap a mark to remove it)",
-      "pan": "Move / zoom"
+      "pan": "Move / zoom",
+      "select": "Select / move / resize / rotate"
     },
     "undo": "Undo",
     "redo": "Redo",
@@ -2178,7 +2299,17 @@
       "fertility": "Fertility",
       "pregnancy": "Pregnancy",
       "other": "Other"
-    }
+    },
+    "archivedCount": "{count, plural, one {# deleted drawing} other {# deleted drawings}} — show / restore",
+    "cancelUpload": "Cancel",
+    "delete": "Delete drawing",
+    "deleteSelected": "Delete selected",
+    "deleted": "Drawing deleted (kept in history)",
+    "dismiss": "Dismiss",
+    "heic": "This photo is in HEIC format. On iPhone choose “Most Compatible” (Settings → Camera → Formats), or take the photo with the Camera button here.",
+    "restore": "Restore",
+    "restored": "Drawing restored",
+    "retry": "Retry"
   },
   "prescriptions": {
     "title": "Prescriptions",
@@ -2412,13 +2543,19 @@
       "procedure": "Procedure",
       "treatment": "Treatment",
       "package": "Package",
-      "other": "Other"
+      "other": "Other",
+      "registration": "Registration / file opening"
     },
     "triggers": {
       "ultrasound": "An ultrasound is recorded in the visit",
       "medical_report": "A medical report is finalized",
-      "medical_certificate": "A medical certificate is finalized"
-    }
+      "medical_certificate": "A medical certificate is finalized",
+      "registration": "A new patient's first visit is registered"
+    },
+    "requiresDoctor": "Requires a doctor",
+    "requiresDoctorHint": "A visit with this service must have a doctor.",
+    "requiresVisit": "Requires a visit",
+    "requiresVisitHint": "Can only be charged on a visit bill (not on a standalone invoice)."
   },
   "accounting": {
     "title": "Accounting",
@@ -2468,7 +2605,8 @@
       "partially_paid": "Partially paid",
       "paid": "Paid",
       "no_charge": "No charge",
-      "void": "Void"
+      "void": "Void",
+      "refunded": "Refunded"
     },
     "statusLabel": "Status",
     "filters": {
@@ -2476,7 +2614,8 @@
       "unpaid": "Unpaid",
       "paid": "Paid",
       "no_charge": "No charge",
-      "void": "Void"
+      "void": "Void",
+      "refunded": "Refunded"
     },
     "methods": {
       "cash": "Cash",
@@ -2500,7 +2639,8 @@
       "medical_report": "Report",
       "medical_certificate": "Certificate",
       "package": "Package",
-      "manual": "Manual"
+      "manual": "Manual",
+      "registration": "Registration"
     },
     "invoice": "Invoice",
     "invoices": "Invoices",
@@ -2708,6 +2848,129 @@
         "paid": "Paid",
         "no_charge": "No charge"
       }
+    },
+    "addAfterPaymentHint": "Services added after payment create a balance to collect at checkout.",
+    "saveDiscount": "Save discount",
+    "serviceAdded": "Service added",
+    "discountLimitHint": "A reason is required. Your role may give up to {percent}%.",
+    "discountReasonHint": "A reason is required for every discount."
+  },
+  "weekdays": {
+    "0": "Sunday",
+    "1": "Monday",
+    "2": "Tuesday",
+    "3": "Wednesday",
+    "4": "Thursday",
+    "5": "Friday",
+    "6": "Saturday"
+  },
+  "billingSettings": {
+    "title": "Billing & workflow",
+    "subtitle": "Payment workflow, working hours, payment methods and discount limits.",
+    "workflowTitle": "Payment workflow",
+    "collectBefore": "Collect payment before the doctor consultation",
+    "collectBeforeOn": "On: reception collects the bill first; the patient enters the doctor's queue once paid (or with a reason).",
+    "collectBeforeOff": "Off: the patient goes to the doctor first; the doctor completes the bill and reception collects at checkout.",
+    "workflowNote": "Applies to new clinic visits. Visits already in today's queue keep the workflow they started with.",
+    "steps": {
+      "registration": "Registration",
+      "billing": "Bill",
+      "payment": "Payment",
+      "queue": "Doctor queue",
+      "doctor": "Doctor",
+      "bill": "Final bill",
+      "checkout": "Checkout"
+    },
+    "registrationTitle": "First-visit registration fee",
+    "registrationActive": "{name}: {price} — charged once, on a new patient's first visit, as its own line.",
+    "registrationInactive": "The registration service is inactive: no file-opening fee is charged.",
+    "registrationMissing": "No registration service is configured.",
+    "registrationHint": "Price and activation are managed in Pricing (service “Registration / file opening”).",
+    "openPricing": "Open pricing",
+    "hoursTitle": "Working hours",
+    "enforceHours": "Restrict appointments to working hours",
+    "enforceHoursHint": "Clinic hours {start}–{end} (Clinic settings) or each doctor's own schedule. Bookings outside need the “outside working hours” permission and are flagged.",
+    "workingDays": "Clinic working days",
+    "hoursNote": "Doctors with their own schedule (Doctors → Schedule) use it instead.",
+    "methodsTitle": "Payment methods",
+    "methodsHint": "Only enabled methods can be used for new payments. Insurance payments are always possible for insured bills.",
+    "discountTitle": "Discount limits",
+    "discountHint": "Maximum discount each role may give on a bill. Empty = unlimited.",
+    "discountPermissionNote": "The “Apply discounts” permission (Roles) decides who may discount at all. Every discount records who, when, how much and why.",
+    "maxDiscount": "Maximum discount",
+    "unlimited": "Unlimited",
+    "save": "Save",
+    "saved": "Saved"
+  },
+  "encounters": {
+    "todayTitle": "Today's visits",
+    "todayHint": "Patients in the clinic now — walk-ins and arrived appointments",
+    "createNow": "Create visit now",
+    "createNowHintPrepay": "The visit starts now (server time). The bill is collected before the doctor.",
+    "createNowHintPostpay": "The visit starts now (server time). The patient goes to the doctor's queue; the bill is collected at checkout.",
+    "alreadyHere": "This patient already has an open visit today — it will be reused, not duplicated.",
+    "anyDoctor": "Next available doctor",
+    "billPreview": "Bill",
+    "create": "Create visit",
+    "created": "Visit created — the patient is in today's queue",
+    "createdCollect": "Visit created — collect the payment",
+    "insuranceNote": "Insurance share is calculated on the bill.",
+    "nothingToPay": "Nothing to pay.",
+    "previewNote": "Prices come from the price list and are kept on the bill even if prices change later.",
+    "reason": "Reason / complaint",
+    "reasonPlaceholder": "e.g. pain, follow-up, ultrasound…",
+    "total": "Total",
+    "walkIn": "Walk-in",
+    "visit": "Clinic visit",
+    "prepayMode": "Payment before the doctor",
+    "postpayMode": "Payment after the doctor",
+    "sendToDoctor": "Send to doctor",
+    "sendUnpaid": "Send to doctor without payment (reason)",
+    "sentToDoctor": "Patient sent to the doctor's queue",
+    "checkout": "Check out",
+    "checkoutWithBalance": "Check out with balance {amount} {currency} (reason)",
+    "checkedOut": "Patient checked out",
+    "age": "{age} y",
+    "allPatients": "All",
+    "myPatients": "My patients",
+    "bill": "Bill",
+    "cancel": "Cancel visit",
+    "collect": "Collect payment",
+    "countsSummary": "{waiting} waiting for the doctor · {payment} at reception",
+    "due": "Due",
+    "settled": "Paid",
+    "finish": "Finish & send bill",
+    "openVisit": "Open visit",
+    "startVisit": "Start visit",
+    "waited": "{minutes} min",
+    "lanes": {
+      "payment": "Payment",
+      "doctor": "Waiting for doctor",
+      "with_doctor": "With doctor",
+      "checkout": "Checkout",
+      "done": "Done"
+    },
+    "empty": {
+      "payment": "No one waiting to pay.",
+      "doctor": "No one waiting.",
+      "with_doctor": "No patient with the doctor.",
+      "checkout": "No one at checkout.",
+      "done": "No finished visits yet."
+    },
+    "moved": {
+      "waiting_doctor": "Sent to the doctor's queue",
+      "awaiting_checkout": "Sent to checkout",
+      "checked_out": "Checked out",
+      "cancelled": "Visit cancelled"
+    },
+    "status": {
+      "waiting_payment": "Waiting for payment",
+      "waiting_doctor": "Waiting for doctor",
+      "with_doctor": "With doctor",
+      "awaiting_checkout": "Ready for checkout",
+      "bill_finalized": "Bill finalized · waiting for payment",
+      "checked_out": "Checked out",
+      "cancelled": "Cancelled"
     }
   }
 }

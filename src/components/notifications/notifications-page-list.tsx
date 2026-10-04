@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState } from "react"
 import { useTranslations } from "next-intl"
 import { CheckCheck, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -9,6 +9,7 @@ import { useNotifications } from "@/components/notifications/notifications-provi
 import { listNotifications } from "@/lib/actions/account"
 import { cn } from "@/lib/utils"
 import type { AppNotification, NotificationCategory } from "@/types/db"
+import { useSafeTransition } from "@/hooks/use-safe-transition"
 
 const CATEGORIES: NotificationCategory[] = ["appointments", "patients", "medical", "security", "admin", "system"]
 
@@ -23,7 +24,7 @@ export function NotificationsPageList() {
   const [category, setCategory] = useState<NotificationCategory | null>(null)
   const [older, setOlder] = useState<AppNotification[]>([])
   const [exhausted, setExhausted] = useState(false)
-  const [pending, startTransition] = useTransition()
+  const [pending, startTransition] = useSafeTransition()
 
   const liveIds = new Set(live.map((i) => i.id))
   const merged = [...live, ...older.filter((o) => !liveIds.has(o.id))]

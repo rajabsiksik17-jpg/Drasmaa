@@ -1,7 +1,7 @@
 "use client"
 
 import { ExportMenu } from "@/components/documents/export-menu"
-import { useState, useTransition } from "react"
+import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
@@ -49,6 +49,7 @@ import { cancelVisit, completeVisit, missingVisitFields } from "@/lib/actions/cl
 import { ageFromDob, formatDate, formatDateTime } from "@/lib/dates"
 import type { VisitBundle } from "@/lib/data/visit"
 import type { Patient, TimelineEvent } from "@/types/db"
+import { useSafeTransition } from "@/hooks/use-safe-transition"
 
 export interface VisitPerms {
   editVisit: boolean
@@ -114,7 +115,7 @@ function VisitWorkspaceInner({
   const router = useRouter()
   const registry = useSaveRegistry()
   const { showError } = useActionError()
-  const [pending, start] = useTransition()
+  const [pending, start] = useSafeTransition()
   const [missing, setMissing] = useState<string[] | null>(null)
   const [followUp, setFollowUp] = useState(false)
   const [askFollowUp, setAskFollowUp] = useState(false)

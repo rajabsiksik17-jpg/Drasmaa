@@ -1,16 +1,16 @@
 "use client"
 
 import { useState } from "react"
-import { useNow } from "@/hooks/use-hydration"
 import Link from "next/link"
 import { useLocale, useTranslations } from "next-intl"
 import { AnimatePresence, motion } from "motion/react"
 import { Hourglass, Play, Stethoscope, UserRound } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { StartVisitDialog, appointmentTypeToVisit } from "@/components/visits/start-visit-dialog"
+import { StartVisitDialog } from "@/components/visits/start-visit-dialog"
 import { useRefs } from "@/components/app-context"
+import { useNow } from "@/hooks/use-hydration"
 import { ageFromDob, formatTime } from "@/lib/dates"
-import type { AppointmentWithRefs } from "@/types/db"
+import type { QueueEncounter } from "@/lib/data/encounters"
 
 // null until hydrated: the server never renders a wall-clock-dependent value.
 function useMinutesSince(iso: string | null): number | null {
@@ -19,14 +19,16 @@ function useMinutesSince(iso: string | null): number | null {
   return Math.max(0, Math.round((now - new Date(iso).getTime()) / 60_000))
 }
 
-function QueueItem({ a, index, onStart }: { a: AppointmentWithRefs; index: number; onStart: () => void }) {
+function QueueItem({ e, index, onStart }: { e: QueueEncounter; index: number; onStart: () => void }) {
   const t = useTranslations("dashboard")
+  const te = useTranslations("encounters")
   const locale = useLocale()
   const refs = useRefs()
-  const waited = useMinutesSince(a.checked_in_at)
+  const waited = useMinutesSince(e.sent_to_doctor_at ?? e.arrived_at)
+  const service = refs.services.find((s) => s.id === e.service_id)
   return (
     <motion.li
-      layout
+      layout="position"
       initial={{ opacity: 0, x: -12 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: 12 }}
@@ -37,18 +39,19 @@ function QueueItem({ a, index, onStart }: { a: AppointmentWithRefs; index: numbe
         {index + 1}
       </span>
       <div className="min-w-0 flex-1">
-        <Link href={`/patients/${a.patient_id}`} className="block truncate font-medium hover:text-primary">
-          {a.patient?.full_name}
+        <Link href={`/patients/${e.patient_id}`} className="block truncate font-medium hover:text-primary">
+          {e.patient?.full_name}
         </Link>
         <p className="truncate text-xs text-muted-foreground">
-          {a.patient?.patient_code}
-          {a.patient?.dob ? ` · ${ageFromDob(a.patient.dob)}y` : ""} · {refs.optionLabel("appointment_type", a.visit_type)} ·{" "}
-          {formatTime(a.scheduled_at, locale)}
+          {e.patient?.patient_code}
+          {e.patient?.dob ? ` · ${ageFromDob(e.patient.dob)}y` : ""}
+          {service ? ` · ${locale === "ar" ? service.name_ar : service.name_en}` : ""} · {formatTime(e.arrived_at, locale)}
+          {e.source === "walk_in" ? ` · ${te("walkIn")}` : ""}
         </p>
       </div>
       <span className="hidden text-xs whitespace-nowrap text-muted-foreground sm:inline">{waited != null && t("waitingFor", { minutes: waited })}</span>
       <Button size="sm" variant="outline" asChild>
-        <Link href={`/patients/${a.patient_id}`}>
+        <Link href={`/patients/${e.patient_id}`}>
           <UserRound />
           <span className="sr-only sm:not-sr-only">{t("open")}</span>
         </Link>
@@ -61,10 +64,10 @@ function QueueItem({ a, index, onStart }: { a: AppointmentWithRefs; index: numbe
   )
 }
 
-/** Live waiting room for the doctor (fed by realtime refresh of the page). */
-export function DoctorQueue({ waiting, current }: { waiting: AppointmentWithRefs[]; current: AppointmentWithRefs[] }) {
+/** Live waiting room for the doctor: today's clinic visits (walk-ins and booked arrivals). */
+export function DoctorQueue({ waiting, current }: { waiting: QueueEncounter[]; current: QueueEncounter[] }) {
   const t = useTranslations("dashboard")
-  const [starting, setStarting] = useState<AppointmentWithRefs | null>(null)
+  const [starting, setStarting] = useState<QueueEncounter | null>(null)
   return (
     <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)]">
       <div className="rounded-xl border bg-card shadow-xs">
@@ -73,9 +76,7 @@ export function DoctorQueue({ waiting, current }: { waiting: AppointmentWithRefs
             <Hourglass className="size-4 text-status-waiting" />
             {t("queue")}
           </h2>
-          <motion.span key={waiting.length} initial={{ scale: 1.3 }} animate={{ scale: 1 }} className="rounded-full bg-status-waiting/15 px-2 text-xs font-semibold tabular-nums">
-            {waiting.length}
-          </motion.span>
+          <span className="rounded-full bg-status-waiting/15 px-2 text-xs font-semibold tabular-nums">{waiting.length}</span>
         </header>
         <div className="p-3">
           {waiting.length === 0 ? (
@@ -83,8 +84,8 @@ export function DoctorQueue({ waiting, current }: { waiting: AppointmentWithRefs
           ) : (
             <ul className="space-y-2">
               <AnimatePresence initial={false}>
-                {waiting.map((a, i) => (
-                  <QueueItem key={a.id} a={a} index={i} onStart={() => setStarting(a)} />
+                {waiting.map((e, i) => (
+                  <QueueItem key={e.id} e={e} index={i} onStart={() => setStarting(e)} />
                 ))}
               </AnimatePresence>
             </ul>
@@ -101,16 +102,28 @@ export function DoctorQueue({ waiting, current }: { waiting: AppointmentWithRefs
             <p className="py-6 text-center text-sm text-muted-foreground">{t("noCurrent")}</p>
           ) : (
             <ul className="space-y-2">
-              {current.map((a) => (
-                <li key={a.id} className="rounded-lg border border-status-with-doctor/30 bg-status-with-doctor/5 p-3">
-                  <p className="font-medium">{a.patient?.full_name}</p>
-                  <p className="text-xs text-muted-foreground">{a.patient?.patient_code}</p>
-                  <Button size="sm" className="mt-2" onClick={() => setStarting(a)}>
-                    <Play className="rtl:-scale-x-100" />
-                    {t("continueVisit")}
-                  </Button>
-                </li>
-              ))}
+              {current.map((e) => {
+                const open = e.visits.find((v) => v.status === "draft" || v.status === "in_progress")
+                return (
+                  <li key={e.id} className="rounded-lg border border-status-with-doctor/30 bg-status-with-doctor/5 p-3">
+                    <p className="font-medium">{e.patient?.full_name}</p>
+                    <p className="text-xs text-muted-foreground">{e.patient?.patient_code}</p>
+                    {open ? (
+                      <Button size="sm" className="mt-2" asChild>
+                        <Link href={`/patients/${e.patient_id}/visits/${open.id}`}>
+                          <Play className="rtl:-scale-x-100" />
+                          {t("continueVisit")}
+                        </Link>
+                      </Button>
+                    ) : (
+                      <Button size="sm" className="mt-2" onClick={() => setStarting(e)}>
+                        <Play className="rtl:-scale-x-100" />
+                        {t("continueVisit")}
+                      </Button>
+                    )}
+                  </li>
+                )
+              })}
             </ul>
           )}
         </div>
@@ -120,8 +133,8 @@ export function DoctorQueue({ waiting, current }: { waiting: AppointmentWithRefs
           open={!!starting}
           onOpenChange={(o) => !o && setStarting(null)}
           patientId={starting.patient_id}
-          appointmentId={starting.id}
-          suggested={appointmentTypeToVisit(starting.visit_type)}
+          appointmentId={starting.appointment_id}
+          encounterId={starting.id}
         />
       )}
     </section>

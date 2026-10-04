@@ -7,6 +7,7 @@ import type {
   ClinicSettings,
   Department,
   Doctor,
+  DoctorWorkingHours,
   DropdownOption,
   InsuranceCompany,
   InvestigationType,
@@ -34,8 +35,24 @@ export interface ReferenceData {
   investigationTypes: InvestigationType[]
   services: Pick<
     Service,
-    "id" | "code" | "category" | "name_en" | "name_ar" | "price_cash" | "price_insurance" | "billable" | "insurance_eligible" | "appointment_type" | "default_duration_minutes" | "active" | "sort_order"
+    | "id"
+    | "code"
+    | "category"
+    | "name_en"
+    | "name_ar"
+    | "price_cash"
+    | "price_insurance"
+    | "billable"
+    | "insurance_eligible"
+    | "appointment_type"
+    | "auto_trigger"
+    | "requires_doctor"
+    | "default_duration_minutes"
+    | "active"
+    | "sort_order"
   >[]
+  /** Doctors' own weekly schedules (a doctor without rows follows the clinic hours). */
+  doctorHours: Pick<DoctorWorkingHours, "doctor_id" | "weekday" | "start_time" | "end_time">[]
   settings: Pick<
     ClinicSettings,
     | "clinic_name_en"
@@ -49,6 +66,10 @@ export interface ReferenceData {
     | "max_upload_mb"
     | "logo_path"
     | "currency"
+    | "collect_payment_before_consultation"
+    | "enforce_working_hours"
+    | "working_days"
+    | "payment_methods"
   >
 }
 

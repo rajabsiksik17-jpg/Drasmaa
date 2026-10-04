@@ -5,7 +5,7 @@ import type { DrawingShape } from "@/types/db"
 // exactly what the doctor saw.
 
 export type ShapeTool = DrawingShape["type"]
-export type Tool = ShapeTool | "eraser" | "pan"
+export type Tool = ShapeTool | "eraser" | "pan" | "select"
 
 export const COLORS = ["#e11d2e", "#1d4ed8", "#059669", "#111827", "#f59e0b", "#7c3aed", "#ffffff"]
 export const SIZES = [2, 4, 8, 14]
@@ -48,8 +48,23 @@ function distToSegment(px: number, py: number, x1: number, y1: number, x2: numbe
   return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy))
 }
 
-/** Object eraser: does the pointer touch this shape? (canvas coordinates) */
+/** Rotation (degrees) of boxes and text; point-based shapes have it baked into their points. */
+export const rotationOf = (s: DrawingShape) => ((s.type === "rect" || s.type === "circle" || s.type === "text") && s.rotation ? s.rotation : 0)
+
+/** Object eraser / selection: does the pointer touch this shape? (canvas coordinates) */
 export function hitTest(s: DrawingShape, x: number, y: number, tolerance: number): boolean {
+  const r = rotationOf(s)
+  if (r && (s.type === "rect" || s.type === "circle" || s.type === "text")) {
+    // Test in the shape's own (unrotated) frame, which rotates around its top-left corner.
+    const origin = s.type === "text" ? { x: s.x, y: s.y } : { x: box(s).x, y: box(s).y }
+    const a = (-r * Math.PI) / 180
+    const dx = x - origin.x
+    const dy = y - origin.y
+    const lx = dx * Math.cos(a) - dy * Math.sin(a)
+    const ly = dx * Math.sin(a) + dy * Math.cos(a)
+    const local = s.type === "text" ? { ...s, x: 0, y: 0, rotation: 0 } : { ...s, x: 0, y: 0, w: Math.abs(s.w), h: Math.abs(s.h), rotation: 0 }
+    return hitTest(local, lx, ly, tolerance)
+  }
   switch (s.type) {
     case "pen":
     case "marker":
@@ -83,3 +98,9 @@ export function hitTest(s: DrawingShape, x: number, y: number, tolerance: number
 }
 
 export const newShapeId = () => Math.random().toString(36).slice(2, 12)
+
+/** The top-most shape under the pointer (last drawn wins), for selection. */
+export function topShapeAt(shapes: DrawingShape[], x: number, y: number, tolerance: number): DrawingShape | null {
+  for (let i = shapes.length - 1; i >= 0; i--) if (hitTest(shapes[i], x, y, tolerance)) return shapes[i]
+  return null
+}

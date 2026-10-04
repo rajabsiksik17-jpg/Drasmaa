@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
@@ -14,6 +14,7 @@ import { SectionCard } from "@/components/common/page"
 import { useActionError } from "@/hooks/use-action-error"
 import { saveSecurityPolicy } from "@/lib/actions/security"
 import { cn } from "@/lib/utils"
+import { useSafeTransition } from "@/hooks/use-safe-transition"
 
 export interface SecurityPolicy {
   otp_mode: "disabled" | "new_device" | "every_login"
@@ -45,7 +46,7 @@ export function AuthenticationSettings({
   const locale = useLocale()
   const router = useRouter()
   const { showError } = useActionError()
-  const [pending, start] = useTransition()
+  const [pending, start] = useSafeTransition()
   const [v, setV] = useState({ ...policy, otp_roles: requiredRoles })
 
   const num = (key: keyof SecurityPolicy, label: string, min: number, max: number, suffix?: string) => (

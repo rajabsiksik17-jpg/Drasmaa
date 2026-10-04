@@ -1,9 +1,9 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { authorize } from "@/lib/auth/session"
+import { authorize, hasPermission } from "@/lib/auth/session"
 import { createClient } from "@/lib/supabase/server"
-import { dbFail, fail, logDbError, ok, type ActionResult } from "@/lib/errors"
+import { dbFail, fail, ok, type ActionResult } from "@/lib/errors"
 import { P } from "@/lib/permissions"
 import { limit } from "@/lib/security/rate-limit"
 import { newPatientSchema, type NewPatientInput } from "@/lib/validation/patient"
@@ -38,7 +38,9 @@ export async function findDuplicates(input: {
   return ok((data ?? []) as DuplicateCandidate[])
 }
 
-export async function createPatient(input: NewPatientInput): Promise<ActionResult<{ id: string; patient_code: string }>> {
+export async function createPatient(
+  input: NewPatientInput,
+): Promise<ActionResult<{ id: string; patient_code: string; encounter_id: string | null; invoice_id: string | null }>> {
   const auth = await authorize(P.patientsCreate)
   if (auth.error) return auth.error
   if (!(await limit("patientCreatePerUser", auth.session.userId))) return fail("rateLimited")
@@ -46,7 +48,9 @@ export async function createPatient(input: NewPatientInput): Promise<ActionResul
   if (!parsed.success) {
     return fail("validation", parsed.error.issues.map((i) => i.path.join(".")))
   }
-  const { husband, assigned_doctor_id, ...patient } = parsed.data
+  const { husband, assigned_doctor_id, visit, ...patient } = parsed.data
+  if (visit && !hasPermission(auth.session, P.encountersCreate)) return fail("forbidden")
+  const uuidOrNull = (v: string | null | undefined) => (v && /^[0-9a-f-]{36}$/i.test(v) ? v : null)
   const supabase = await createClient()
 
   // Normalise optional values: "" / undefined -> null. Dates are already ISO
@@ -59,35 +63,30 @@ export async function createPatient(input: NewPatientInput): Promise<ActionResul
   })
   // The doctor is only sent when explicitly chosen (several active doctors).
   // With exactly one active doctor the database trigger assigns it itself.
-  const doctorId = assigned_doctor_id && /^[0-9a-f-]{36}$/i.test(assigned_doctor_id) ? assigned_doctor_id : null
+  const doctorId = uuidOrNull(assigned_doctor_id)
   if (doctorId) patientRow.assigned_doctor_id = doctorId
   const husbandRow = clean(husband)
   const hasHusband = Object.values(husbandRow).some((v) => v != null)
+  const visitRow = visit
+    ? { doctor_id: uuidOrNull(visit.doctor_id) ?? doctorId, service_id: uuidOrNull(visit.service_id), reason: visit.reason || null, no_charge: !!visit.no_charge }
+    : null
 
-  // Preferred path: one transaction (patient + husband) in the database.
-  const rpc = await supabase.rpc("create_patient", { p_patient: patientRow, p_husband: hasHusband ? husbandRow : {} })
-  if (!rpc.error) {
-    const row = (Array.isArray(rpc.data) ? rpc.data[0] : rpc.data) as { id: string; patient_code: string } | undefined
-    if (!row) return dbFail("createPatient (no row returned)", { code: "unexpected" })
-    revalidatePath("/patients")
-    return ok(row)
-  }
-  if (rpc.error.code !== "PGRST202") return dbFail("createPatient", rpc.error)
-
-  // Fallback while migration 0009 is not applied yet (function not found).
-  console.warn("[db] createPatient: create_patient() missing — run `npx supabase db push`. Using two-step insert.")
-  const { data, error } = await supabase.from("patients").insert(patientRow).select("id, patient_code").single()
-  if (error) return dbFail("createPatient insert", error)
-  if (hasHusband) {
-    const { error: hErr } = await supabase.from("patient_husbands").update(husbandRow).eq("patient_id", data.id)
-    if (hErr) {
-      // The patient exists; report the partial failure instead of hiding it.
-      logDbError("createPatient husband", hErr)
-      return ok(data)
+  // One transaction: patient + husband (+ clinic visit, registration fee and
+  // service lines). Nothing is kept if any step fails.
+  const rpc = await supabase.rpc("create_patient", { p_patient: patientRow, p_husband: hasHusband ? husbandRow : {}, p_visit: visitRow })
+  if (rpc.error) return dbFail("createPatient", rpc.error)
+  const row = (Array.isArray(rpc.data) ? rpc.data[0] : rpc.data) as { id: string; patient_code: string; encounter_id: string | null } | undefined
+  if (!row) return dbFail("createPatient (no row returned)", { code: "unexpected" })
+  revalidatePath("/patients")
+  let invoiceId: string | null = null
+  if (row.encounter_id) {
+    revalidatePath("/today")
+    if (hasPermission(auth.session, P.accountingView)) {
+      const { data: inv } = await supabase.from("invoices").select("id").eq("encounter_id", row.encounter_id).neq("status", "void").maybeSingle()
+      invoiceId = inv?.id ?? null
     }
   }
-  revalidatePath("/patients")
-  return ok(data)
+  return ok({ ...row, invoice_id: invoiceId })
 }
 
 export async function setPatientArchived(patientId: string, archived: boolean): Promise<ActionResult> {

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
 import { AnimatePresence, motion } from "motion/react"
@@ -29,6 +29,7 @@ import { useActionError } from "@/hooks/use-action-error"
 import { saveEmailAccount, testEmailConnection, type ConnectionTestResult } from "@/lib/actions/email-settings"
 import { formatDateTime } from "@/lib/dates"
 import { cn } from "@/lib/utils"
+import { useSafeTransition } from "@/hooks/use-safe-transition"
 
 type Security = "ssl" | "tls" | "starttls" | "none"
 
@@ -107,8 +108,8 @@ export function EmailSettings({
   const locale = useLocale()
   const router = useRouter()
   const { showError, message } = useActionError()
-  const [saving, startSave] = useTransition()
-  const [testing, startTest] = useTransition()
+  const [saving, startSave] = useSafeTransition()
+  const [testing, startTest] = useSafeTransition()
   const [result, setResult] = useState<ConnectionTestResult | null>(null)
   const [sendTo, setSendTo] = useState(userEmail)
   const [v, setV] = useState({

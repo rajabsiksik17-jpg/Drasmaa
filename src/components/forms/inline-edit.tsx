@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useId, useRef, useState, useTransition } from "react"
+import { useEffect, useId, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
 import { AnimatePresence, motion } from "motion/react"
@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { DateInput } from "@/components/common/date-input"
 import { cn } from "@/lib/utils"
+import { useSafeTransition } from "@/hooks/use-safe-transition"
 
 type FieldType = "text" | "textarea" | "date" | "number" | "select" | "tel"
 
@@ -67,7 +68,7 @@ export function InlineEdit({
   const [draft, setDraft] = useState(value == null ? "" : String(value))
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [pending, startTransition] = useTransition()
+  const [pending, startTransition] = useSafeTransition()
   const inputRef = useRef<HTMLInputElement & HTMLTextAreaElement & HTMLSelectElement>(null)
 
   // The draft is (re)initialised from the current value when editing starts.

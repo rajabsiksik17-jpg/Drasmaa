@@ -15,6 +15,7 @@ import {
 } from "lucide-react"
 import { requireSession, hasPermission } from "@/lib/auth/session"
 import { dayWindow, getAppointmentCounts, getAppointments } from "@/lib/data/appointments"
+import { getTodayQueue } from "@/lib/data/encounters"
 import { createClient } from "@/lib/supabase/server"
 import { P } from "@/lib/permissions"
 import { clinicToday, formatDate, formatDateLong, formatTime, isoToClinicParts } from "@/lib/dates"
@@ -74,7 +75,9 @@ export default async function DashboardPage() {
   const queue = todayList.rows
     .filter((a) => a.status === "checked_in")
     .sort((a, b) => (a.checked_in_at ?? "").localeCompare(b.checked_in_at ?? ""))
-  const current = todayList.rows.filter((a) => a.status === "with_doctor")
+  // The doctor's queue is made of today's real clinic visits (walk-ins
+  // included), not of appointments.
+  const doctorQueue = isDoctor ? (await getTodayQueue({ doctorId: session.doctor!.id, statuses: ["waiting_doctor", "with_doctor"] })).rows : []
   const firstName = session.profile.full_name.split(" ")[0]
 
   return (
@@ -82,7 +85,10 @@ export default async function DashboardPage() {
       {canSeeAppointments && (
         <RealtimeRefresh
           channel="dashboard"
-          specs={[{ table: "appointments", filter: doctorScope ? `doctor_id=eq.${doctorScope}` : undefined }]}
+          specs={[
+            { table: "appointments", filter: doctorScope ? `doctor_id=eq.${doctorScope}` : undefined },
+            ...(isDoctor ? [{ table: "encounters", filter: `queue_date=eq.${clinicToday()}` }] : []),
+          ]}
         />
       )}
       <PageHeader
@@ -116,7 +122,7 @@ export default async function DashboardPage() {
       {isDoctor ? (
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
           <div className="space-y-6">
-            <DoctorQueue waiting={queue} current={current} />
+            <DoctorQueue waiting={doctorQueue.filter((e) => e.status === "waiting_doctor")} current={doctorQueue.filter((e) => e.status === "with_doctor")} />
             <SectionCard title={t("todaySchedule")} icon={CalendarCheck2} bodyClassName="p-0 md:p-0">
               <div className="p-3">
                 <AppointmentList rows={todayList.rows} hideDoctor={!!doctorScope} emptyTitle={t("noToday")} />

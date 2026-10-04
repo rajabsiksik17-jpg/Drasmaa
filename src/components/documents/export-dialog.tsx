@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useTransition } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
 import { AnimatePresence, motion } from "motion/react"
@@ -24,6 +24,7 @@ import { DOCUMENTS, SUMMARY_SECTIONS, type DocumentType } from "@/lib/documents/
 import { formatBytes } from "@/lib/storage/files"
 import { P } from "@/lib/permissions"
 import { cn } from "@/lib/utils"
+import { useSafeTransition } from "@/hooks/use-safe-transition"
 
 export type ExportIntent = "pdf" | "whatsapp" | "email"
 
@@ -69,8 +70,8 @@ export function ExportDialog({
   const [showPreview, setShowPreview] = useState(true)
   const [doc, setDoc] = useState<GeneratedDocument | null>(null)
   const [composer, setComposer] = useState<ComposerChannel | null>(null)
-  const [generating, startGenerate] = useTransition()
-  const [previewing, startPreview] = useTransition()
+  const [generating, startGenerate] = useSafeTransition()
+  const [previewing, startPreview] = useSafeTransition()
 
   useEffect(() => {
     if (!open || target.type !== "investigations" || !target.patientId) return

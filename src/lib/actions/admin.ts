@@ -47,53 +47,6 @@ export async function createUser(input: z.input<typeof newUserSchema>): Promise<
   return ok({ id: data.user.id })
 }
 
-export async function updateUser(input: {
-  id: string
-  role_id?: string | null
-  department_id?: string | null
-  active?: boolean
-  full_name?: string
-  full_name_ar?: string | null
-}): Promise<ActionResult> {
-  const auth = await authorize(P.usersManage)
-  if (auth.error) return auth.error
-  const parsed = z
-    .object({
-      id: z.uuid(),
-      role_id: z.uuid().nullable().optional(),
-      department_id: z.uuid().nullable().optional(),
-      active: z.boolean().optional(),
-      full_name: label.optional(),
-      full_name_ar: z.string().trim().max(120).nullable().optional(),
-    })
-    .safeParse(input)
-  if (!parsed.success) return fail("validation")
-  const { id, ...patch } = parsed.data
-  if (id === auth.session.userId && (patch.active === false || patch.role_id !== undefined)) {
-    return fail("forbidden")
-  }
-  const supabase = await createClient()
-  const { error } = await supabase.from("profiles").update(patch).eq("id", id)
-  if (error) return dbFail("updateUser", error)
-
-  if (patch.active === false) {
-    // Revoke sessions immediately for deactivated users.
-    try {
-      await createAdminClient().auth.admin.updateUserById(id, { ban_duration: "876000h" })
-    } catch {
-      // Profile is inactive regardless: RLS denies everything to inactive profiles.
-    }
-  } else if (patch.active === true) {
-    try {
-      await createAdminClient().auth.admin.updateUserById(id, { ban_duration: "none" })
-    } catch {
-      /* ignore */
-    }
-  }
-  revalidatePath("/admin/users")
-  return ok(undefined)
-}
-
 export async function sendPasswordReset(email: string, origin: string): Promise<ActionResult> {
   const auth = await authorize(P.usersManage)
   if (auth.error) return auth.error
@@ -102,7 +55,10 @@ export async function sendPasswordReset(email: string, origin: string): Promise<
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${origin}/auth/confirm?next=/login/reset`,
   })
-  if (error) return fail("unexpected")
+  if (error) {
+    console.error(`[admin] password reset e-mail failed: ${error.code ?? error.status ?? "unknown"}`)
+    return fail(error.status === 429 ? "rateLimited" : "emailFailed")
+  }
   return ok(undefined)
 }
 

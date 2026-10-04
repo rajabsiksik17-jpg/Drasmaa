@@ -18,6 +18,7 @@ export async function startVisit(input: {
   visitType: VisitType
   appointmentId?: string | null
   caseId?: string | null
+  encounterId?: string | null
 }): Promise<ActionResult<{ visitId: string }>> {
   const auth = await authorize(P.visitsCreate)
   if (auth.error) return auth.error
@@ -27,6 +28,7 @@ export async function startVisit(input: {
       visitType: z.enum(["pregnancy", "fertility", "gynecology"]),
       appointmentId: id.nullable().optional(),
       caseId: id.nullable().optional(),
+      encounterId: id.nullable().optional(),
     })
     .safeParse(input)
   if (!parsed.success) return fail("validation")
@@ -36,10 +38,12 @@ export async function startVisit(input: {
     p_visit_type: parsed.data.visitType,
     p_appointment: parsed.data.appointmentId ?? null,
     p_case: parsed.data.caseId ?? null,
+    p_encounter: parsed.data.encounterId ?? null,
   })
   if (error) return dbFail("startVisit", error)
-  revalidatePath(`/patients/${parsed.data.patientId}`)
+  revalidatePath(`/patients/${parsed.data.patientId}`, "layout")
   revalidatePath("/dashboard")
+  revalidatePath("/today")
   return ok({ visitId: data as string })
 }
 
@@ -51,6 +55,7 @@ export async function completeVisit(visitId: string): Promise<ActionResult> {
   const { error } = await supabase.rpc("complete_visit", { p_visit: visitId })
   if (error) return dbFail("completeVisit", error)
   revalidatePath("/dashboard")
+  revalidatePath("/today")
   revalidatePath("/patients", "layout")
   return ok(undefined)
 }

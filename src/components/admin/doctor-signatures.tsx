@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState, useTransition } from "react"
+import { useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
 import { CheckCircle2, Loader2, PenLine, Trash2, Upload } from "lucide-react"
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { SectionCard } from "@/components/common/page"
 import { useActionError } from "@/hooks/use-action-error"
 import { removeDoctorSignature, uploadDoctorSignature } from "@/lib/actions/admin"
+import { useSafeTransition } from "@/hooks/use-safe-transition"
 
 type DoctorRow = { id: string; name: string; hasSignature: boolean; active: boolean }
 
@@ -18,7 +19,7 @@ export function DoctorSignatures({ doctors }: { doctors: DoctorRow[] }) {
   const router = useRouter()
   const { showError } = useActionError()
   const [busy, setBusy] = useState<string | null>(null)
-  const [, start] = useTransition()
+  const [, start] = useSafeTransition()
   const input = useRef<HTMLInputElement>(null)
   const target = useRef<string | null>(null)
 

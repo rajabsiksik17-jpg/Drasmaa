@@ -1,6 +1,6 @@
 "use client"
 
-import { useTransition } from "react"
+
 import Link from "next/link"
 import { useLocale, useTranslations } from "next-intl"
 import { useTheme } from "next-themes"
@@ -24,6 +24,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { setLocale, signOut } from "@/lib/actions/account"
 import { useConnectionStatus } from "@/lib/realtime/use-realtime"
 import { cn } from "@/lib/utils"
+import { useSafeTransition } from "@/hooks/use-safe-transition"
 
 export function Topbar({ onMenu, onSearch }: { onMenu: () => void; onSearch: () => void }) {
   const t = useTranslations("topbar")
@@ -86,7 +87,7 @@ function UserMenu() {
   const session = useSession()
   const locale = useLocale()
   const { theme, setTheme } = useTheme()
-  const [pending, startTransition] = useTransition()
+  const [pending, startTransition] = useSafeTransition()
   const initials = session.fullName
     .split(/\s+/)
     .filter(Boolean)

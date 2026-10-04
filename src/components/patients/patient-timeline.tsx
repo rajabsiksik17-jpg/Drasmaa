@@ -20,6 +20,8 @@ import {
   Stethoscope,
   UserPlus,
   type LucideIcon,
+  DoorClosed,
+  DoorOpen,
 } from "lucide-react"
 import { formatDateTime } from "@/lib/dates"
 import { cn } from "@/lib/utils"
@@ -41,6 +43,8 @@ const ICONS: Record<TimelineEvent["event_type"], { icon: LucideIcon; tone: strin
   invoice: { icon: Receipt, tone: "bg-muted text-muted-foreground" },
   payment: { icon: Wallet, tone: "bg-muted text-muted-foreground" },
   generated_document: { icon: FileDown, tone: "bg-muted text-muted-foreground" },
+  clinic_visit: { icon: DoorOpen, tone: "bg-status-waiting/15 text-status-waiting" },
+  checked_out: { icon: DoorClosed, tone: "bg-status-completed/12 text-status-completed" },
 }
 
 export function timelineHref(patientId: string, e: TimelineEvent) {
@@ -71,6 +75,9 @@ export function timelineHref(patientId: string, e: TimelineEvent) {
     case "appointment":
     case "checked_in":
       return `${base}?tab=appointments`
+    case "clinic_visit":
+    case "checked_out":
+      return `${base}?tab=billing`
     default:
       return `${base}?tab=personal`
   }

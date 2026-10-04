@@ -1,13 +1,13 @@
 "use client"
 
-import { useRef, useState, useTransition } from "react"
+import { useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useTranslations } from "next-intl"
+import { useLocale, useTranslations } from "next-intl"
 import { Controller, useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { AnimatePresence, motion } from "motion/react"
-import { ArrowLeft, ArrowRight, CheckCircle2, HeartHandshake, Loader2, Search, Stethoscope, UserPlus, UserRound, Users, Wallet } from "lucide-react"
+import { ArrowLeft, ArrowRight, CheckCircle2, DoorOpen, HeartHandshake, Loader2, Search, Stethoscope, UserPlus, UserRound, Users, Wallet } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,12 +15,15 @@ import { Label } from "@/components/ui/label"
 import { NativeSelect } from "@/components/common/native-select"
 import { DateInput } from "@/components/common/date-input"
 import { SectionCard } from "@/components/common/page"
-import { useRefs } from "@/components/app-context"
+import { useCan, useRefs } from "@/components/app-context"
+import { Money } from "@/components/accounting/money"
+import { P } from "@/lib/permissions"
 import { useActionError } from "@/hooks/use-action-error"
 import { createPatient, findDuplicates, type DuplicateCandidate } from "@/lib/actions/patients"
 import { newPatientSchema, type NewPatientInput, type NewPatientOutput } from "@/lib/validation/patient"
 import { ageFromDob, clinicToday, formatDate } from "@/lib/dates"
 import { cn } from "@/lib/utils"
+import { useSafeTransition } from "@/hooks/use-safe-transition"
 
 type Step = "check" | "matches" | "form"
 
@@ -28,12 +31,13 @@ export function NewPatientWizard({ initialName }: { initialName: string }) {
   const t = useTranslations("newPatient")
   const tc = useTranslations("common")
   const refs = useRefs()
+  const can = useCan()
   const router = useRouter()
   const { message } = useActionError()
   const [step, setStep] = useState<Step>("check")
   const [matches, setMatches] = useState<DuplicateCandidate[]>([])
-  const [checking, startCheck] = useTransition()
-  const [saving, startSave] = useTransition()
+  const [checking, startCheck] = useSafeTransition()
+  const [saving, startSave] = useSafeTransition()
   const [formError, setFormError] = useState<string | null>(null)
 
   const form = useForm<NewPatientInput, unknown, NewPatientOutput>({
@@ -51,8 +55,13 @@ export function NewPatientWizard({ initialName }: { initialName: string }) {
       payment_method: "cash",
       insurance_company_id: "",
       assigned_doctor_id: "",
+      visit: null,
     },
   })
+  // "The patient is here now": open the first clinic visit in the same transaction.
+  const canVisitNow = can(P.encountersCreate)
+  const [visitNow, setVisitNow] = useState(canVisitNow)
+  const [visit, setVisit] = useState({ service_id: "", reason: "", no_charge: false })
   const [dob, husbandDob, payment] = useWatch({ control: form.control, name: ["dob", "husband.dob", "payment_method"] })
   const err = form.formState.errors
 
@@ -90,13 +99,22 @@ export function NewPatientWizard({ initialName }: { initialName: string }) {
     startSave(async () => {
       setFormError(null)
       try {
-        const res = await createPatient(form.getValues())
+        const values = form.getValues()
+        const res = await createPatient({
+          ...values,
+          visit: visitNow ? { doctor_id: values.assigned_doctor_id || null, service_id: visit.service_id || null, reason: visit.reason || null, no_charge: visit.no_charge } : null,
+        })
         if (!res.ok) {
-          setFormError(res.error.code === "unexpected" ? t("createFailed") : message(res.error))
+          setFormError(message(res.error, "createPatient"))
           submitting.current = false
           return
         }
         toast.success(t("created", { code: res.data.patient_code }))
+        // Pre-payment workflow: straight to collecting the first-visit bill.
+        if (res.data.invoice_id && refs.settings.collect_payment_before_consultation) {
+          router.push(`/accounting/invoices/${res.data.invoice_id}`)
+          return
+        }
         router.push(`/patients/${res.data.id}`)
       } catch {
         setFormError(t("createFailed"))
@@ -349,6 +367,8 @@ export function NewPatientWizard({ initialName }: { initialName: string }) {
               </div>
             </SectionCard>
 
+            {canVisitNow && <VisitNowSection enabled={visitNow} onEnabled={setVisitNow} visit={visit} onVisit={setVisit} insurance={payment === "insurance"} />}
+
             {formError && <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{formError}</p>}
             <div className="flex flex-wrap justify-between gap-2">
               <Button type="button" variant="ghost" onClick={() => setStep("check")}>
@@ -364,5 +384,92 @@ export function NewPatientWizard({ initialName }: { initialName: string }) {
         )}
       </AnimatePresence>
     </div>
+  )
+}
+
+/** First visit now: registration (file opening) fee + the visit service, as separate lines. */
+function VisitNowSection({
+  enabled,
+  onEnabled,
+  visit,
+  onVisit,
+  insurance,
+}: {
+  enabled: boolean
+  onEnabled: (v: boolean) => void
+  visit: { service_id: string; reason: string; no_charge: boolean }
+  onVisit: (v: { service_id: string; reason: string; no_charge: boolean }) => void
+  insurance: boolean
+}) {
+  const t = useTranslations("newPatient")
+  const ta = useTranslations("appointments")
+  const refs = useRefs()
+  const can = useCan()
+  const locale = useLocale()
+  const services = refs.services.filter((s) => s.active && s.category !== "package" && s.auto_trigger !== "registration")
+  const registration = refs.services.find((s) => s.auto_trigger === "registration" && s.active && s.billable)
+  const chosen = services.find((s) => s.id === visit.service_id)
+  const price = (s: (typeof services)[number] | undefined) => (!s || !s.billable ? 0 : Number(insurance && s.insurance_eligible ? (s.price_insurance ?? s.price_cash) : s.price_cash))
+  const lines = visit.no_charge
+    ? []
+    : [
+        ...(registration ? [{ label: locale === "ar" ? registration.name_ar : registration.name_en, amount: price(registration) }] : []),
+        ...(chosen ? [{ label: locale === "ar" ? chosen.name_ar : chosen.name_en, amount: price(chosen) }] : []),
+      ]
+  const total = lines.reduce((sum, l) => sum + l.amount, 0)
+  return (
+    <SectionCard title={t("visitNow")} icon={DoorOpen}>
+      <label className="flex items-start justify-between gap-3">
+        <span className="text-sm">
+          {t("visitNowLabel")}
+          <span className="block text-xs text-muted-foreground">{t("visitNowHint")}</span>
+        </span>
+        <input type="checkbox" checked={enabled} onChange={(e) => onEnabled(e.target.checked)} className="mt-1 size-5 accent-primary" />
+      </label>
+      {enabled && (
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-1.5">
+            <Label htmlFor="f-visit-service">{ta("service")}</Label>
+            <NativeSelect id="f-visit-service" value={visit.service_id} onChange={(e) => onVisit({ ...visit, service_id: e.target.value })}>
+              <option value="">{ta("noService")}</option>
+              {services.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {locale === "ar" ? s.name_ar : s.name_en}
+                </option>
+              ))}
+            </NativeSelect>
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="f-visit-reason">{t("visitReason")}</Label>
+            <Input id="f-visit-reason" value={visit.reason} onChange={(e) => onVisit({ ...visit, reason: e.target.value })} />
+          </div>
+          <label className="flex items-center gap-2 text-sm sm:col-span-2">
+            <input type="checkbox" checked={visit.no_charge} onChange={(e) => onVisit({ ...visit, no_charge: e.target.checked })} className="size-4 accent-primary" />
+            {ta("noCharge")}
+          </label>
+          {(can(P.pricingView) || can(P.accountingView)) && (
+            <div className="rounded-lg border bg-muted/30 p-3 text-sm sm:col-span-2">
+              {lines.length === 0 ? (
+                <p className="text-muted-foreground">{t("nothingToPay")}</p>
+              ) : (
+                <ul className="space-y-1">
+                  {lines.map((l) => (
+                    <li key={l.label} className="flex justify-between gap-3">
+                      <span>{l.label}</span>
+                      <Money value={l.amount} currency={refs.settings.currency} />
+                    </li>
+                  ))}
+                  <li className="flex justify-between gap-3 border-t pt-1 font-semibold">
+                    <span>{t("firstVisitTotal")}</span>
+                    <Money value={total} currency={refs.settings.currency} />
+                  </li>
+                </ul>
+              )}
+              <p className="mt-2 text-xs text-muted-foreground">{refs.settings.collect_payment_before_consultation ? t("collectNext") : t("collectAfter")}</p>
+            </div>
+          )}
+        </div>
+      )}
+    </SectionCard>
   )
 }

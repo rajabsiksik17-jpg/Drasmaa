@@ -1,11 +1,11 @@
 "use client"
 
-import { useMemo, useState, useTransition } from "react"
+import { useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
 import { AnimatePresence, motion } from "motion/react"
-import { Ban, CheckCircle2, Loader2, Plus, Printer, Receipt, RotateCcw, Save, ShieldCheck, Trash2, UserRound, Wallet, X } from "lucide-react"
+import { Ban, CheckCircle2, DoorOpen, Loader2, Plus, Printer, Receipt, RotateCcw, Save, ShieldCheck, Stethoscope, Trash2, UserRound, Wallet, X } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,16 +15,19 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { NativeSelect } from "@/components/common/native-select"
 import { SectionCard } from "@/components/common/page"
 import { ReasonDialog } from "@/components/forms/correction-context"
-import { useCan } from "@/components/app-context"
+import { useCan, useRefs } from "@/components/app-context"
+import { EncounterStatusBadge } from "@/components/encounters/encounter-status"
 import { ExportMenu } from "@/components/documents/export-menu"
 import { InvoiceStatusBadge, Money } from "@/components/accounting/money"
 import { useActionError } from "@/hooks/use-action-error"
 import { addInvoiceService, recordPayments, refundPayment, updateInvoice, updateInvoiceLine, voidInvoice } from "@/lib/actions/accounting"
+import { setEncounterStatus } from "@/lib/actions/encounters"
 import { formatDateTime } from "@/lib/dates"
 import { P } from "@/lib/permissions"
 import { cn } from "@/lib/utils"
 import type { InvoiceBundle } from "@/lib/data/invoice"
 import type { InvoiceLine, PayMethod, PaymentType, Service } from "@/types/db"
+import { useSafeTransition } from "@/hooks/use-safe-transition"
 
 type Insurer = { id: string; name_en: string; name_ar: string; default_coverage_percent: number | null; active: boolean }
 type PayRow = { payer: "patient" | "insurance"; method: PayMethod; amount: string; reference: string }
@@ -51,9 +54,10 @@ export function InvoiceCheckout({
   const locale = useLocale()
   const ar = locale === "ar"
   const can = useCan()
+  const refs = useRefs()
   const router = useRouter()
   const { showError } = useActionError()
-  const [pending, start] = useTransition()
+  const [pending, start] = useSafeTransition()
   const inv = bundle.invoice
   const c = inv.currency
   const voided = inv.status === "void"
@@ -127,11 +131,15 @@ export function InvoiceCheckout({
   // ---- payments
   const defaultRows = (): PayRow[] => {
     const rows: PayRow[] = []
-    if (inv.balance_patient > 0) rows.push({ payer: "patient", method: "cash", amount: String(round3(inv.balance_patient)), reference: "" })
+    if (inv.balance_patient > 0) rows.push({ payer: "patient", method: refs.settings.payment_methods[0] ?? "cash", amount: String(round3(inv.balance_patient)), reference: "" })
     if (rows.length === 0 && inv.balance_insurance > 0) rows.push({ payer: "insurance", method: "insurance", amount: String(round3(inv.balance_insurance)), reference: inv.insurance_claim_ref ?? "" })
     return rows.length ? rows : [{ payer: "patient", method: "cash", amount: "", reference: "" }]
   }
   const [payRows, setPayRows] = useState<PayRow[]>(defaultRows)
+  // One key per payment attempt: a double click or a retry after a lost
+  // response records the payment once (database idempotency).
+  const [requestKey, setRequestKey] = useState(() => crypto.randomUUID())
+  const methods = refs.settings.payment_methods
   const payTotal = payRows.reduce((s, r) => s + (Number(r.amount) || 0), 0)
   const setRow = (i: number, patch: Partial<PayRow>) => setPayRows((rows) => rows.map((r, j) => (j === i ? { ...r, ...patch } : r)))
   const pay = () =>
@@ -140,13 +148,14 @@ export function InvoiceCheckout({
         .filter((r) => Number(r.amount) > 0)
         .map((r) => ({ payer: r.payer, method: r.payer === "insurance" ? ("insurance" as const) : r.method, amount: Number(r.amount), reference: r.reference || null }))
       if (payments.length === 0) return
-      const res = await recordPayments({ invoiceId: inv.id, payments })
-      if (!res.ok) return showError(res.error)
+      const res = await recordPayments({ invoiceId: inv.id, payments, requestKey })
+      if (!res.ok) return showError(res.error, "recordPayment")
+      setRequestKey(crypto.randomUUID())
       toast.success(t("paymentRecorded"), {
         action: { label: t("printReceipt"), onClick: () => window.open(`/print/receipt/${res.data.ids[0]}?autoprint=1`, "_blank", "noopener") },
       })
       router.refresh()
-      setPayRows([{ payer: "patient", method: "cash", amount: "", reference: "" }])
+      setPayRows([{ payer: "patient", method: methods[0] ?? "cash", amount: "", reference: "" }])
     })
 
   // ---- refunds / void
@@ -345,6 +354,7 @@ export function InvoiceCheckout({
         </div>
 
         <div className="space-y-5">
+          {bundle.encounter && <EncounterPanel encounter={bundle.encounter} balance={inv.balance_patient} currency={c} />}
           <SectionCard title={t("summary")} icon={Receipt}>
             <dl className="space-y-1.5 text-sm">
               <SumRow label={t("subtotal")} value={<Money value={inv.subtotal} currency={c} />} />
@@ -377,7 +387,7 @@ export function InvoiceCheckout({
                         {inv.payment_type !== "cash" && <option value="insurance">{t("payers.insurance")}</option>}
                       </NativeSelect>
                       <NativeSelect value={r.method} disabled={r.payer === "insurance"} onChange={(e) => setRow(i, { method: e.target.value as PayMethod })} aria-label={t("method")}>
-                        {(r.payer === "insurance" ? (["insurance"] as const) : (["cash", "card", "transfer", "other"] as const)).map((m) => (
+                        {(r.payer === "insurance" ? (["insurance"] as const) : methods).map((m) => (
                           <option key={m} value={m}>
                             {t(`methods.${m}`)}
                           </option>
@@ -396,7 +406,7 @@ export function InvoiceCheckout({
                   ))}
                 </AnimatePresence>
                 {payRows.length < 5 && (
-                  <Button size="xs" variant="ghost" onClick={() => setPayRows((rows) => [...rows, { payer: "patient", method: "card", amount: "", reference: "" }])}>
+                  <Button size="xs" variant="ghost" onClick={() => setPayRows((rows) => [...rows, { payer: "patient", method: methods.find((m) => m !== "cash") ?? methods[0], amount: "", reference: "" }])}>
                     <Plus />
                     {t("splitPayment")}
                   </Button>
@@ -467,11 +477,24 @@ export function InvoiceCheckout({
                       </NativeSelect>
                       <Input type="number" min={0} step="0.001" dir="ltr" value={form.discountValue} onChange={(e) => setForm({ ...form, discountValue: e.target.value })} aria-label={t("discount")} />
                     </div>
-                    <Input value={form.discountReason} onChange={(e) => setForm({ ...form, discountReason: e.target.value })} placeholder={t("discountReason")} />
+                    <Input
+                      value={form.discountReason}
+                      onChange={(e) => setForm({ ...form, discountReason: e.target.value })}
+                      placeholder={t("discountReason")}
+                      aria-invalid={Number(form.discountValue) > 0 && form.discountReason.trim().length < 3}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {bundle.discountLimit != null ? t("discountLimitHint", { percent: bundle.discountLimit }) : t("discountReasonHint")}
+                    </p>
                   </div>
                 )}
                 <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder={t("notes")} className="min-h-14" />
-                <Button className="w-full" variant="secondary" onClick={() => withReason((r) => saveSettings(r))} disabled={pending}>
+                <Button
+                  className="w-full"
+                  variant="secondary"
+                  onClick={() => withReason((r) => saveSettings(r))}
+                  disabled={pending || (Number(form.discountValue) > 0 && form.discountReason.trim().length < 3)}
+                >
                   <Save />
                   {t("saveSettings")}
                 </Button>
@@ -547,6 +570,57 @@ export function InvoiceCheckout({
         }
       />
     </div>
+  )
+}
+
+/** Where the patient is in today's workflow, and the reception moves. */
+function EncounterPanel({ encounter, balance, currency }: { encounter: NonNullable<InvoiceBundle["encounter"]>; balance: number; currency: string }) {
+  const t = useTranslations("encounters")
+  const can = useCan()
+  const router = useRouter()
+  const { showError } = useActionError()
+  const [pending, start] = useSafeTransition()
+  const [ask, setAsk] = useState<null | "waiting_doctor" | "checked_out">(null)
+  const unpaid = balance > 0.0005
+  const move = (status: "waiting_doctor" | "checked_out", reason?: string) =>
+    start(async () => {
+      const res = await setEncounterStatus({ id: encounter.id, status, reason: reason ?? null })
+      if (!res.ok) return showError(res.error)
+      toast.success(t(status === "checked_out" ? "checkedOut" : "sentToDoctor"))
+      router.refresh()
+    })
+  const request = (status: "waiting_doctor" | "checked_out") => (unpaid ? setAsk(status) : move(status))
+  return (
+    <SectionCard title={t("visit")} icon={DoorOpen}>
+      <div className="space-y-3 text-sm">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <EncounterStatusBadge status={encounter.status} prepay={encounter.prepay} />
+          <span className="text-xs text-muted-foreground">{t(encounter.prepay ? "prepayMode" : "postpayMode")}</span>
+        </div>
+        {encounter.reason && <p className="text-muted-foreground">{encounter.reason}</p>}
+        {encounter.status === "waiting_payment" && can(P.accountingCreate) && (
+          <Button className="w-full" variant={unpaid ? "outline" : "default"} onClick={() => request("waiting_doctor")} disabled={pending}>
+            {pending ? <Loader2 className="animate-spin" /> : <Stethoscope />}
+            {unpaid ? t("sendUnpaid") : t("sendToDoctor")}
+          </Button>
+        )}
+        {encounter.status === "awaiting_checkout" && can(P.accountingCreate) && (
+          <Button className="w-full" variant={unpaid ? "outline" : "default"} onClick={() => request("checked_out")} disabled={pending}>
+            {pending ? <Loader2 className="animate-spin" /> : <DoorOpen />}
+            {unpaid ? t("checkoutWithBalance", { amount: balance.toFixed(3), currency }) : t("checkout")}
+          </Button>
+        )}
+      </div>
+      <ReasonDialog
+        open={!!ask}
+        onOpenChange={(o) => !o && setAsk(null)}
+        onConfirm={(r) => {
+          const status = ask
+          setAsk(null)
+          if (status) move(status, r)
+        }}
+      />
+    </SectionCard>
   )
 }
 

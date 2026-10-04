@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
@@ -35,6 +35,7 @@ import { setAppointmentStatus } from "@/lib/actions/appointments"
 import { openAppointmentInvoice } from "@/lib/actions/accounting"
 import { P } from "@/lib/permissions"
 import type { AppointmentStatus, AppointmentWithRefs } from "@/types/db"
+import { useSafeTransition } from "@/hooks/use-safe-transition"
 
 /** Context-aware actions for one appointment (role + status dependent). */
 export function AppointmentActions({ appointment, compact = false }: { appointment: AppointmentWithRefs; compact?: boolean }) {
@@ -43,7 +44,7 @@ export function AppointmentActions({ appointment, compact = false }: { appointme
   const session = useSession()
   const router = useRouter()
   const { message } = useActionError()
-  const [pending, startTransition] = useTransition()
+  const [pending, startTransition] = useSafeTransition()
   const [rescheduleOpen, setRescheduleOpen] = useState(false)
   const [cancelOpen, setCancelOpen] = useState(false)
   const [visitOpen, setVisitOpen] = useState(false)

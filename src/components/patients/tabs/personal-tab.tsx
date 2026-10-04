@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl"
 import { Archive, ArchiveRestore, HeartHandshake, MessageCircle, UserRound, Wallet } from "lucide-react"
-import { useTransition } from "react"
+
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { InlineEdit } from "@/components/forms/inline-edit"
@@ -13,6 +13,7 @@ import { setPatientArchived } from "@/lib/actions/patients"
 import { ageFromDob, formatDate } from "@/lib/dates"
 import { P } from "@/lib/permissions"
 import type { PatientContext } from "@/lib/data/patient"
+import { useSafeTransition } from "@/hooks/use-safe-transition"
 
 /** A labelled value that can be edited in place (EditableField). */
 export function EditableField({ label, children, hint }: { label: string; children: React.ReactNode; hint?: React.ReactNode }) {
@@ -36,7 +37,7 @@ export function PersonalTab({ ctx }: { ctx: PatientContext }) {
   const can = useCan()
   const refs = useRefs()
   const router = useRouter()
-  const [pending, start] = useTransition()
+  const [pending, start] = useSafeTransition()
   const { patient: p, husband: h } = ctx
   const edit = can(P.patientsEdit)
   const ageHint = (dob: string | null) => (dob ? t("ageCalculated", { age: ageFromDob(dob) ?? "—" }) : null)

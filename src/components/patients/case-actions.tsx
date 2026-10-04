@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
 import { Baby, FlaskConical, HeartPulse, Loader2, Lock, Stethoscope } from "lucide-react"
@@ -19,6 +19,7 @@ import { StartVisitDialog } from "@/components/visits/start-visit-dialog"
 import { useActionError } from "@/hooks/use-action-error"
 import { closeCase, createFertilityCase, createPregnancyCase, startOiCycle } from "@/lib/actions/clinical"
 import type { VisitType } from "@/types/db"
+import { useSafeTransition } from "@/hooks/use-safe-transition"
 
 export function NewVisitButton({ patientId, type, label, size = "sm" }: { patientId: string; type: VisitType; label: string; size?: "sm" | "default" }) {
   const [open, setOpen] = useState(false)
@@ -37,7 +38,7 @@ export function NewCaseButton({ patientId, kind }: { patientId: string; kind: "f
   const t = useTranslations("cases")
   const router = useRouter()
   const { showError } = useActionError()
-  const [pending, start] = useTransition()
+  const [pending, start] = useSafeTransition()
   return (
     <Button
       size="sm"
@@ -63,7 +64,7 @@ export function StartCycleButton({ patientId, caseId }: { patientId: string; cas
   const t = useTranslations("cases")
   const router = useRouter()
   const { showError } = useActionError()
-  const [pending, start] = useTransition()
+  const [pending, start] = useSafeTransition()
   return (
     <Button
       size="sm"
@@ -88,7 +89,7 @@ export function CloseCaseButton({ caseId, kind }: { caseId: string; kind: "ferti
   const { showError } = useActionError()
   const [open, setOpen] = useState(false)
   const [outcome, setOutcome] = useState("")
-  const [pending, start] = useTransition()
+  const [pending, start] = useSafeTransition()
   return (
     <>
       <Button size="sm" variant="ghost" onClick={() => setOpen(true)}>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useTransition } from "react"
+
 import { useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
 import { AnimatePresence, motion } from "motion/react"
@@ -11,6 +11,7 @@ import { useActionError } from "@/hooks/use-action-error"
 import { revokeSession, signOutOtherSessions } from "@/lib/actions/security"
 import { formatDateTime } from "@/lib/dates"
 import { cn } from "@/lib/utils"
+import { useSafeTransition } from "@/hooks/use-safe-transition"
 
 export interface SessionRow {
   id: string
@@ -47,7 +48,7 @@ export function SessionsList({
   const locale = useLocale()
   const router = useRouter()
   const { message } = useActionError()
-  const [pending, start] = useTransition()
+  const [pending, start] = useSafeTransition()
 
   const revoke = (id: string) =>
     start(async () => {

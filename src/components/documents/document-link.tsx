@@ -1,11 +1,12 @@
 "use client"
 
-import { useTransition } from "react"
+
 import { useTranslations } from "next-intl"
 import { Download, ExternalLink, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { getDocumentUrl } from "@/lib/actions/documents"
 import { cn } from "@/lib/utils"
+import { useSafeTransition } from "@/hooks/use-safe-transition"
 
 /** Opens a private document through a short-lived signed URL (never a public link). */
 export function DocumentLink({
@@ -20,7 +21,7 @@ export function DocumentLink({
   className?: string
 }) {
   const t = useTranslations("documents")
-  const [pending, start] = useTransition()
+  const [pending, start] = useSafeTransition()
   return (
     <button
       type="button"

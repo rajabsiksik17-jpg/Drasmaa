@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
@@ -25,6 +25,7 @@ import { useActionError } from "@/hooks/use-action-error"
 import { addInvestigationResult } from "@/lib/actions/clinical"
 import { clinicToday, formatDate } from "@/lib/dates"
 import type { Investigation, InvestigationResult } from "@/types/db"
+import { useSafeTransition } from "@/hooks/use-safe-transition"
 
 export function AddResultButton({ patientId }: { patientId: string }) {
   const t = useTranslations("investigations")
@@ -38,7 +39,7 @@ export function AddResultButton({ patientId }: { patientId: string }) {
   const [date, setDate] = useState(clinicToday())
   const [notes, setNotes] = useState("")
   const [error, setError] = useState<string | null>(null)
-  const [pending, start] = useTransition()
+  const [pending, start] = useSafeTransition()
   return (
     <>
       <Button size="sm" onClick={() => setOpen(true)}>

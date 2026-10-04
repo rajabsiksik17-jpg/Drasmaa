@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
 import { FileSignature, Loader2, UserPlus, UserRound } from "lucide-react"
@@ -14,6 +14,7 @@ import { useActionError } from "@/hooks/use-action-error"
 import { createReport } from "@/lib/actions/reports"
 import { cn } from "@/lib/utils"
 import type { ReportLanguage, ReportTemplate } from "@/types/db"
+import { useSafeTransition } from "@/hooks/use-safe-transition"
 
 export function NewReportForm({
   templates,
@@ -28,7 +29,7 @@ export function NewReportForm({
   const locale = useLocale()
   const router = useRouter()
   const { showError } = useActionError()
-  const [pending, start] = useTransition()
+  const [pending, start] = useSafeTransition()
   const [mode, setMode] = useState<"patient" | "standalone">(patient ? "patient" : "patient")
   const [picked, setPicked] = useState<PickedPatient | null>(patient ? { id: patient.id, full_name: patient.full_name, patient_code: patient.patient_code } : null)
   const [subject, setSubject] = useState({ name: "", dob: null as string | null, age: "", country: "", reference: "" })

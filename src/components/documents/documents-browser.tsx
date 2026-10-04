@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
 import { AnimatePresence, motion } from "motion/react"
@@ -28,6 +28,7 @@ import { formatBytes } from "@/lib/storage/files"
 import { P } from "@/lib/permissions"
 import { cn } from "@/lib/utils"
 import type { DocumentCategory, PatientDocument } from "@/types/db"
+import { useSafeTransition } from "@/hooks/use-safe-transition"
 
 export function DocumentsBrowser({
   patientId,
@@ -46,7 +47,7 @@ export function DocumentsBrowser({
   const [filter, setFilter] = useState<DocumentCategory | "all" | "archived">("all")
   const [uploadOpen, setUploadOpen] = useState(false)
   const [confirm, setConfirm] = useState<PatientDocument | null>(null)
-  const [pending, start] = useTransition()
+  const [pending, start] = useSafeTransition()
 
   const visible = documents.filter((d) =>
     filter === "archived" ? d.status === "archived" : d.status === "active" && (filter === "all" || d.category === filter),

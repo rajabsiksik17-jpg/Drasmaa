@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState } from "react"
 import { useLocale, useTranslations } from "next-intl"
 import { useTheme } from "next-themes"
 import Link from "next/link"
@@ -15,6 +15,7 @@ import { changePassword, setLocale, updatePreferences } from "@/lib/actions/acco
 import { cn } from "@/lib/utils"
 import { useHydrated } from "@/hooks/use-hydration"
 import type { UserPreferences } from "@/types/db"
+import { useSafeTransition } from "@/hooks/use-safe-transition"
 
 function Choice<T extends string>({ value, options, onChange }: { value: T; options: { value: T; label: string; icon?: React.ReactNode }[]; onChange: (v: T) => void }) {
   return (
@@ -53,7 +54,7 @@ export function PreferencesForm({
   const { theme, setTheme } = useTheme()
   // The theme is only known in the browser; render the server default until hydrated.
   const hydrated = useHydrated()
-  const [pending, start] = useTransition()
+  const [pending, start] = useSafeTransition()
   const [prefs, setPrefs] = useState(preferences)
   const [pw, setPw] = useState("")
 

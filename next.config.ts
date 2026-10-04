@@ -21,6 +21,12 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   // Native / large server-only packages loaded at runtime (PDF + email).
   serverExternalPackages: ["puppeteer-core", "@sparticuz/chromium", "nodemailer", "imapflow"],
+  experimental: {
+    // Logos, doctor photos and signatures (≤ 2 MB each) are uploaded through
+    // Server Actions; the default limit (1 MB) rejected ordinary phone images.
+    // Large medical images go straight to private Storage (signed upload URL).
+    serverActions: { bodySizeLimit: "4mb" },
+  },
   turbopack: {
     resolveAlias: { "next-intl/config": I18N_REQUEST_CONFIG },
   },

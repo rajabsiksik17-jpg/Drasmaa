@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
 import { Download, Eye, FileStack, Loader2, Mail, MessageCircle, MoreHorizontal, Trash2 } from "lucide-react"
@@ -20,6 +20,7 @@ import { formatBytes } from "@/lib/storage/files"
 import { formatDateTime } from "@/lib/dates"
 import { P } from "@/lib/permissions"
 import { cn } from "@/lib/utils"
+import { useSafeTransition } from "@/hooks/use-safe-transition"
 
 /** Patient → Documents → Generated documents (immutable PDF snapshots, newest first). */
 export function GeneratedDocuments({ patientId, documents }: { patientId: string; documents: GeneratedDocumentRow[] }) {
@@ -32,7 +33,7 @@ export function GeneratedDocuments({ patientId, documents }: { patientId: string
   const [compose, setCompose] = useState<{ id: string; channel: ComposerChannel } | null>(null)
   const [deleting, setDeleting] = useState<GeneratedDocumentRow | null>(null)
   const [reason, setReason] = useState("")
-  const [pending, start] = useTransition()
+  const [pending, start] = useSafeTransition()
   const [showRemoved, setShowRemoved] = useState(false)
 
   useRealtime(`gendocs:${patientId}`, [{ table: "generated_documents", filter: `patient_id=eq.${patientId}` }], () => router.refresh())

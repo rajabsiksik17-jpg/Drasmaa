@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
 import { Banknote, CalendarDays, Lock, LockOpen, Loader2, MinusCircle, Plus, Scale, Wallet } from "lucide-react"
@@ -19,6 +19,7 @@ import { formatDate, formatDateTime } from "@/lib/dates"
 import { P } from "@/lib/permissions"
 import { cn } from "@/lib/utils"
 import type { CashRegister } from "@/types/db"
+import { useSafeTransition } from "@/hooks/use-safe-transition"
 
 export interface RegisterData {
   date: string
@@ -40,7 +41,7 @@ export function CashRegisterView({ data }: { data: RegisterData }) {
   const can = useCan()
   const router = useRouter()
   const { showError } = useActionError()
-  const [pending, start] = useTransition()
+  const [pending, start] = useSafeTransition()
   const c = data.currency
   const reg = data.register
   const closed = reg?.status === "closed"

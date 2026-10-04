@@ -1,9 +1,9 @@
 "use client"
 
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react"
-import { Ellipse, Image as KonvaImage, Layer, Line, Rect, Stage, Text } from "react-konva"
+import { Ellipse, Group, Image as KonvaImage, Layer, Line, Rect, Stage, Text, Transformer } from "react-konva"
 import type Konva from "konva"
-import { arrowHead, box, hitTest, newShapeId, strokeStyle, type Tool } from "@/lib/drawing/shapes"
+import { arrowHead, box, hitTest, newShapeId, strokeStyle, topShapeAt, type Tool } from "@/lib/drawing/shapes"
 import type { DrawingShape } from "@/types/db"
 
 export interface AnnotationStageHandle {
@@ -22,76 +22,154 @@ interface Props {
   color: string
   size: number
   readOnly: boolean
+  selectedId: string | null
+  onSelect: (id: string | null) => void
   onAdd: (shape: DrawingShape) => void
+  /** A selected object was moved / resized / rotated. */
+  onUpdate: (shape: DrawingShape) => void
   onErase: (ids: string[]) => void
   onTextRequest: (at: { x: number; y: number; screenX: number; screenY: number }) => void
 }
 
-function ShapeNode({ s }: { s: DrawingShape }) {
+/**
+ * One annotation as its own Konva group (an individual object): boxes and
+ * text sit at their top-left corner and carry their rotation; point-based
+ * shapes are drawn in canvas coordinates.
+ */
+function ShapeNode({ s, selected, draggable, onDragEnd, nodeRef }: {
+  s: DrawingShape
+  selected?: boolean
+  draggable?: boolean
+  onDragEnd?: (node: Konva.Group) => void
+  nodeRef?: (node: Konva.Group | null) => void
+}) {
+  const common = {
+    ref: nodeRef,
+    draggable,
+    listening: !!draggable,
+    onDragEnd: (e: Konva.KonvaEventObject<DragEvent>) => onDragEnd?.(e.target as unknown as Konva.Group),
+  }
+  const halo = selected ? { shadowColor: "#38bdf8", shadowBlur: 8, shadowOpacity: 0.9 } : {}
   switch (s.type) {
     case "pen":
     case "marker":
     case "highlight": {
       const st = strokeStyle(s.type, s.size)
       return (
-        <Line
-          points={s.points.length === 2 ? [...s.points, s.points[0] + 0.1, s.points[1] + 0.1] : s.points}
-          stroke={s.color}
-          strokeWidth={st.width}
-          opacity={st.opacity}
-          lineCap="round"
-          lineJoin="round"
-          tension={0.3}
-          listening={false}
-          perfectDrawEnabled={false}
-        />
+        <Group {...common}>
+          <Line
+            points={s.points.length === 2 ? [...s.points, s.points[0] + 0.1, s.points[1] + 0.1] : s.points}
+            stroke={s.color}
+            strokeWidth={st.width}
+            hitStrokeWidth={Math.max(st.width, 16)}
+            opacity={st.opacity}
+            lineCap="round"
+            lineJoin="round"
+            tension={0.3}
+            perfectDrawEnabled={false}
+            {...halo}
+          />
+        </Group>
       )
     }
     case "line":
-      return <Line points={s.points} stroke={s.color} strokeWidth={s.size} lineCap="round" listening={false} />
+      return (
+        <Group {...common}>
+          <Line points={s.points} stroke={s.color} strokeWidth={s.size} hitStrokeWidth={Math.max(s.size, 16)} lineCap="round" {...halo} />
+        </Group>
+      )
     case "arrow":
       return (
-        <>
-          <Line points={s.points} stroke={s.color} strokeWidth={s.size} lineCap="round" listening={false} />
-          <Line points={arrowHead(s.points, s.size)} closed fill={s.color} listening={false} />
-        </>
+        <Group {...common}>
+          <Line points={s.points} stroke={s.color} strokeWidth={s.size} hitStrokeWidth={Math.max(s.size, 16)} lineCap="round" {...halo} />
+          <Line points={arrowHead(s.points, s.size)} closed fill={s.color} {...halo} />
+        </Group>
       )
     case "rect": {
       const b = box(s)
-      return <Rect x={b.x} y={b.y} width={b.w} height={b.h} stroke={s.color} strokeWidth={s.size} listening={false} />
+      return (
+        <Group {...common} x={b.x} y={b.y} rotation={s.rotation ?? 0}>
+          <Rect width={b.w} height={b.h} stroke={s.color} strokeWidth={s.size} hitStrokeWidth={Math.max(s.size, 16)} strokeScaleEnabled={false} {...halo} />
+        </Group>
+      )
     }
     case "circle": {
       const b = box(s)
-      return <Ellipse x={b.x + b.w / 2} y={b.y + b.h / 2} radiusX={b.w / 2} radiusY={b.h / 2} stroke={s.color} strokeWidth={s.size} listening={false} />
+      return (
+        <Group {...common} x={b.x} y={b.y} rotation={s.rotation ?? 0}>
+          <Ellipse x={b.w / 2} y={b.h / 2} radiusX={b.w / 2} radiusY={b.h / 2} stroke={s.color} strokeWidth={s.size} hitStrokeWidth={Math.max(s.size, 16)} strokeScaleEnabled={false} {...halo} />
+        </Group>
+      )
     }
     case "text":
       return (
-        <Text
-          x={s.x}
-          y={s.y}
-          text={s.text}
-          fontSize={s.size}
-          fontStyle="600"
-          fontFamily="Cairo, Arial, sans-serif"
-          fill={s.color}
-          stroke="#ffffff"
-          strokeWidth={Math.max(1, s.size / 10)}
-          fillAfterStrokeEnabled
-          listening={false}
-        />
+        <Group {...common} x={s.x} y={s.y} rotation={s.rotation ?? 0}>
+          <Text
+            text={s.text}
+            fontSize={s.size}
+            fontStyle="600"
+            fontFamily="Cairo, Arial, sans-serif"
+            fill={s.color}
+            stroke="#ffffff"
+            strokeWidth={Math.max(1, s.size / 10)}
+            fillAfterStrokeEnabled
+            {...halo}
+          />
+        </Group>
       )
+  }
+}
+
+/** New geometry of a shape after its group was dragged / transformed (then the group is reset). */
+function applyTransform(s: DrawingShape, node: Konva.Group): DrawingShape {
+  const round = (n: number) => Math.round(n * 10) / 10
+  const bake = (points: number[]) => {
+    const m = node.getTransform()
+    const out: number[] = []
+    for (let i = 0; i + 1 < points.length; i += 2) {
+      const p = m.point({ x: points[i], y: points[i + 1] })
+      out.push(round(p.x), round(p.y))
+    }
+    node.setAttrs({ x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0 })
+    return out
+  }
+  // Sizes are always stored positive (a flipped box keeps its geometry, not a negative size).
+  const sx = Math.abs(node.scaleX())
+  const sy = Math.abs(node.scaleY())
+  const rotation = round(((node.rotation() % 360) + 360) % 360)
+  switch (s.type) {
+    case "pen":
+    case "marker":
+    case "highlight":
+      return { ...s, points: bake(s.points) }
+    case "line":
+    case "arrow": {
+      const p = bake(s.points)
+      return { ...s, points: [p[0], p[1], p[2], p[3]] }
+    }
+    case "text":
+      node.setAttrs({ scaleX: 1, scaleY: 1 })
+      return { ...s, x: round(node.x()), y: round(node.y()), size: Math.min(400, Math.max(8, round(s.size * Math.max(sx, sy)))), rotation }
+    case "rect":
+    case "circle":
+      node.setAttrs({ scaleX: 1, scaleY: 1 })
+      return { ...s, x: round(node.x()), y: round(node.y()), w: round(Math.abs(s.w) * sx), h: round(Math.abs(s.h) * sy), rotation }
   }
 }
 
 /**
  * Konva stage: original image layer (never modified) + annotation layer.
  * Pointer events cover mouse, touch and stylus; two fingers pinch-zoom and
- * pan; the "pan" tool (or ctrl/⌘ + wheel) moves and zooms the view.
+ * pan; the "pan" tool (or ctrl/⌘ + wheel) moves and zooms the view. The
+ * "select" tool picks one object, which can then be moved, resized,
+ * rotated or deleted on its own.
  */
 const AnnotationStage = forwardRef<AnnotationStageHandle, Props>(function AnnotationStage(props, ref) {
-  const { background, width, height, shapes, tool, color, size, readOnly, onAdd, onErase, onTextRequest } = props
+  const { background, width, height, shapes, tool, color, size, readOnly, selectedId, onSelect, onAdd, onUpdate, onErase, onTextRequest } = props
   const container = useRef<HTMLDivElement>(null)
   const stageRef = useRef<Konva.Stage>(null)
+  const transformer = useRef<Konva.Transformer>(null)
+  const selectedNode = useRef<Konva.Group | null>(null)
   const [viewWidth, setViewWidth] = useState(800)
   const [image, setImage] = useState<HTMLImageElement | null>(null)
   const [zoom, setZoom] = useState(1)
@@ -101,6 +179,8 @@ const AnnotationStage = forwardRef<AnnotationStageHandle, Props>(function Annota
   const pointers = useRef(new Map<number, { x: number; y: number }>())
   const pinch = useRef<{ dist: number; zoom: number; mid: { x: number; y: number }; pan: { x: number; y: number } } | null>(null)
   const panStart = useRef<{ x: number; y: number; pan: { x: number; y: number } } | null>(null)
+  const selecting = tool === "select" && !readOnly
+  const selected = selecting ? shapes.find((s) => s.id === selectedId) ?? null : null
 
   useEffect(() => {
     const el = container.current
@@ -127,6 +207,14 @@ const AnnotationStage = forwardRef<AnnotationStageHandle, Props>(function Annota
     }
   }, [background])
 
+  // Attach the transform handles to the selected object.
+  useEffect(() => {
+    const tr = transformer.current
+    if (!tr) return
+    tr.nodes(selected && selectedNode.current ? [selectedNode.current] : [])
+    tr.getLayer()?.batchDraw()
+  }, [selected, shapes])
+
   // Fit the whole image in the available width and ~72% of the screen height.
   const maxHeight = typeof window === "undefined" ? 900 : Math.max(320, window.innerHeight * 0.72)
   const fit = Math.min(viewWidth / width, maxHeight / height)
@@ -138,6 +226,9 @@ const AnnotationStage = forwardRef<AnnotationStageHandle, Props>(function Annota
     exportPng: () => {
       const stage = stageRef.current
       if (!stage) return null
+      const tr = transformer.current
+      const nodes = tr?.nodes() ?? []
+      tr?.nodes([])
       const prev = { scale: stage.scaleX(), x: stage.x(), y: stage.y(), w: stage.width(), h: stage.height() }
       const target = Math.min(width, 1800)
       const s = target / width
@@ -147,12 +238,15 @@ const AnnotationStage = forwardRef<AnnotationStageHandle, Props>(function Annota
       let url: string | null = null
       try {
         url = stage.toDataURL({ pixelRatio: 1, mimeType: "image/png" })
-      } catch {
-        url = null // image without CORS headers: preview skipped, PDF still uses the vector renderer
+      } catch (error) {
+        // Image served without CORS headers: preview skipped, PDF still uses the vector renderer.
+        console.warn("[drawing] preview export skipped", error)
+        url = null
       }
       stage.scale({ x: prev.scale, y: prev.scale })
       stage.position({ x: prev.x, y: prev.y })
       stage.size({ width: prev.w, height: prev.h })
+      tr?.nodes(nodes)
       return url
     },
     zoomBy: (f) => setZoom((z) => Math.min(8, Math.max(1, z * f))),
@@ -187,6 +281,14 @@ const AnnotationStage = forwardRef<AnnotationStageHandle, Props>(function Annota
       return
     }
     const p = toCanvas(pos)
+    if (selecting) {
+      // Handles and the selected object manage their own drag / transform.
+      const target = e.target
+      if (target.getParent()?.className === "Transformer" || (selected && target.findAncestor((n: Konva.Node) => n === selectedNode.current, true))) return
+      const hit = topShapeAt(shapes, p.x, p.y, 10 / scale)
+      onSelect(hit?.id ?? null)
+      return
+    }
     if (tool === "eraser") return eraseAt(p)
     if (tool === "text") {
       onTextRequest({ x: p.x, y: p.y, screenX: pos.x + (viewWidth - stageWidth) / 2, screenY: pos.y })
@@ -198,7 +300,7 @@ const AnnotationStage = forwardRef<AnnotationStageHandle, Props>(function Annota
         ? { id, type: tool, points: [p.x, p.y], color, size }
         : tool === "line" || tool === "arrow"
           ? { id, type: tool, points: [p.x, p.y, p.x, p.y], color, size }
-          : { id, type: tool, x: p.x, y: p.y, w: 0, h: 0, color, size }
+          : { id, type: tool as "rect" | "circle", x: p.x, y: p.y, w: 0, h: 0, color, size }
     draftRef.current = s
     setDraft(s)
   }
@@ -224,6 +326,7 @@ const AnnotationStage = forwardRef<AnnotationStageHandle, Props>(function Annota
       setPan({ x: panStart.current.pan.x + pos.x - panStart.current.x, y: panStart.current.pan.y + pos.y - panStart.current.y })
       return
     }
+    if (selecting) return
     const p = toCanvas(pos)
     if (tool === "eraser" && e.evt.buttons) return eraseAt(p)
     const d = draftRef.current
@@ -247,10 +350,14 @@ const AnnotationStage = forwardRef<AnnotationStageHandle, Props>(function Annota
     setDraft(null)
     if (!d) return
     const tiny =
-      (d.type === "line" || d.type === "arrow") ? Math.hypot(d.points[2] - d.points[0], d.points[3] - d.points[1]) < 3 / scale
-      : d.type === "rect" || d.type === "circle" ? Math.abs(d.w) < 3 / scale && Math.abs(d.h) < 3 / scale
-      : false
-    if (!tiny) onAdd(d)
+      d.type === "line" || d.type === "arrow"
+        ? Math.hypot(d.points[2] - d.points[0], d.points[3] - d.points[1]) < 3 / scale
+        : d.type === "rect" || d.type === "circle"
+          ? Math.abs(d.w) < 3 / scale && Math.abs(d.h) < 3 / scale
+          : false
+    if (tiny) return
+    // Boxes are stored normalized (top-left + positive size): rotation then has one origin.
+    onAdd(d.type === "rect" || d.type === "circle" ? { ...d, ...box(d) } : d)
   }
 
   const wheel = (e: Konva.KonvaEventObject<WheelEvent>) => {
@@ -264,7 +371,12 @@ const AnnotationStage = forwardRef<AnnotationStageHandle, Props>(function Annota
     setPan({ x: pos.x - (pos.x - pan.x) * k, y: pos.y - (pos.y - pan.y) * k })
   }
 
-  const cursor = readOnly || tool === "pan" ? "grab" : tool === "eraser" ? "cell" : tool === "text" ? "text" : "crosshair"
+  const commitNode = (node: Konva.Group) => {
+    if (selected) onUpdate(applyTransform(selected, node))
+  }
+
+  const cursor = readOnly || tool === "pan" ? "grab" : tool === "eraser" ? "cell" : tool === "text" ? "text" : selecting ? "default" : "crosshair"
+  const keepRatio = selected?.type === "text"
 
   return (
     <div ref={container} className="flex w-full justify-center overflow-hidden rounded-lg border bg-neutral-900/90" style={{ touchAction: "none" }}>
@@ -287,11 +399,41 @@ const AnnotationStage = forwardRef<AnnotationStageHandle, Props>(function Annota
         <Layer listening={false}>
           {image ? <KonvaImage image={image} width={width} height={height} /> : <Rect width={width} height={height} fill="#ffffff" />}
         </Layer>
-        <Layer listening={false}>
-          {shapes.map((s) => (
-            <ShapeNode key={s.id} s={s} />
-          ))}
+        <Layer listening={selecting}>
+          {shapes.map((s) =>
+            selected?.id === s.id ? (
+              <ShapeNode
+                key={s.id}
+                s={s}
+                selected
+                draggable
+                nodeRef={(node) => {
+                  selectedNode.current = node
+                }}
+                onDragEnd={commitNode}
+              />
+            ) : (
+              <ShapeNode key={s.id} s={s} />
+            ),
+          )}
           {draft && <ShapeNode s={draft} />}
+          {selecting && (
+            <Transformer
+              ref={transformer}
+              rotateEnabled
+              flipEnabled={false}
+              keepRatio={keepRatio}
+              enabledAnchors={keepRatio ? ["top-left", "top-right", "bottom-left", "bottom-right"] : undefined}
+              anchorSize={14}
+              borderStroke="#38bdf8"
+              anchorStroke="#0284c7"
+              anchorCornerRadius={3}
+              rotationSnaps={[0, 45, 90, 135, 180, 225, 270, 315]}
+              ignoreStroke
+              boundBoxFunc={(oldBox, newBox) => (Math.abs(newBox.width) < 6 || Math.abs(newBox.height) < 6 ? oldBox : newBox)}
+              onTransformEnd={() => selectedNode.current && commitNode(selectedNode.current)}
+            />
+          )}
         </Layer>
       </Stage>
     </div>

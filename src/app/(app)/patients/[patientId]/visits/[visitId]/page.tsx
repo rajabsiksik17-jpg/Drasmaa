@@ -11,7 +11,7 @@ import { Breadcrumbs } from "@/components/common/page"
 import { VisitWorkspace } from "@/components/visits/visit-workspace"
 import { VisitExtras } from "@/components/visits/visit-extras"
 import type { PrescriptionWithItems } from "@/components/prescriptions/prescription-editor"
-import type { InvoiceSummary } from "@/components/accounting/billing-summary"
+import type { VisitBillInvoice } from "@/components/accounting/visit-bill"
 import { loadDrawings } from "@/lib/data/drawings"
 import type { TimelineEvent } from "@/types/db"
 
@@ -41,20 +41,28 @@ export default async function VisitPage({ params }: PageProps<"/patients/[patien
     .limit(20)
 
   const can = (c: (typeof P)[keyof typeof P]) => hasPermission(session, c)
-  const [drawings, prescriptions, invoice] = await Promise.all([
+  const billLinks = [
+    `visit_id.eq.${visitId}`,
+    ...(bundle.visit.appointment_id ? [`appointment_id.eq.${bundle.visit.appointment_id}`] : []),
+    ...(bundle.visit.encounter_id ? [`encounter_id.eq.${bundle.visit.encounter_id}`] : []),
+  ].join(",")
+  const [drawings, archivedDrawings, prescriptions, invoice] = await Promise.all([
     can(P.drawingsView) ? loadDrawings({ visitId }) : Promise.resolve([]),
+    can(P.drawingsEdit) ? loadDrawings({ visitId, status: "archived" }) : Promise.resolve([]),
     can(P.prescriptionsView)
       ? supabase.from("prescriptions").select("*, items:prescription_items(*)").eq("visit_id", visitId).order("created_at").then((r) => (r.data ?? []) as PrescriptionWithItems[])
       : Promise.resolve([] as PrescriptionWithItems[]),
-    can(P.accountingView)
+    can(P.accountingView) || can(P.billingCharge)
       ? supabase
           .from("invoices")
-          .select("id, invoice_number, status, currency, subtotal, discount_amount, total, insurance_amount, patient_amount, paid_patient, paid_insurance, balance_patient, balance_insurance, payment_type, lines:invoice_lines(description_en, description_ar, quantity, line_total, package_line_id, sort_order)")
-          .or(`visit_id.eq.${visitId}${bundle.visit.appointment_id ? `,appointment_id.eq.${bundle.visit.appointment_id}` : ""}`)
+          .select(
+            "id, invoice_number, status, currency, subtotal, discount_type, discount_value, discount_reason, discount_amount, total, insurance_amount, patient_amount, paid_patient, paid_insurance, balance_patient, balance_insurance, payment_type, insurance_company_id, insurance_claim_ref, notes, encounter_id, version, lines:invoice_lines(id, description_en, description_ar, quantity, line_total, package_line_id, sort_order, source)",
+          )
+          .or(billLinks)
           .neq("status", "void")
           .limit(1)
           .maybeSingle()
-          .then((r) => (r.data as InvoiceSummary | null) ?? null)
+          .then((r) => (r.data as VisitBillInvoice | null) ?? null)
       : Promise.resolve(null),
   ])
   const vs = bundle.visit
@@ -71,6 +79,7 @@ export default async function VisitPage({ params }: PageProps<"/patients/[patien
       status={vs.status}
       context={context}
       drawings={drawings}
+      archivedDrawings={archivedDrawings}
       prescriptions={prescriptions}
       invoice={invoice}
       show={{ imaging: can(P.drawingsView), prescriptions: can(P.prescriptionsView) }}

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState, useTransition } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
 import { AnimatePresence, motion } from "motion/react"
@@ -18,6 +18,7 @@ import { logDocumentShare } from "@/lib/actions/generated-documents"
 import { renderTemplate, sanitizeSubject } from "@/lib/messaging/templates"
 import { formatInternational, normalizeWhatsAppNumber, preferredTarget } from "@/lib/messaging/whatsapp"
 import { cn } from "@/lib/utils"
+import { useSafeTransition } from "@/hooks/use-safe-transition"
 
 export type ComposerChannel = "whatsapp" | "email"
 
@@ -90,7 +91,7 @@ function ComposerBody({ ctx, channel: initialChannel, purpose, appointmentId, ge
   const t = useTranslations("composer")
   const router = useRouter()
   const { message } = useActionError()
-  const [pending, start] = useTransition()
+  const [pending, start] = useSafeTransition()
   const available: ComposerChannel[] = [...(ctx.can.whatsapp && ctx.whatsapp.enabled ? (["whatsapp"] as const) : []), ...(ctx.can.email ? (["email"] as const) : [])]
   const [channel, setChannel] = useState<ComposerChannel>(initialChannel && available.includes(initialChannel) ? initialChannel : (available[0] ?? "whatsapp"))
   const [language, setLanguage] = useState<"ar" | "en">(ctx.patient.language)

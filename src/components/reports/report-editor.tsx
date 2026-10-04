@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState, useTransition } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
@@ -24,6 +24,7 @@ import { duplicateReport, finalizeReport, linkReportToPatient, saveReport, voidR
 import { formatDateTime } from "@/lib/dates"
 import { cn } from "@/lib/utils"
 import type { MedicalReport, ReportLanguage } from "@/types/db"
+import { useSafeTransition } from "@/hooks/use-safe-transition"
 
 const VARIABLES = ["patient_name", "age", "date", "dob", "doctor_name", "specialization", "clinic_name", "patient_id", "reference", "country"] as const
 
@@ -46,7 +47,7 @@ export function ReportEditor({
   const refs = useRefs()
   const router = useRouter()
   const { showError } = useActionError()
-  const [pending, start] = useTransition()
+  const [pending, start] = useSafeTransition()
   const [v, setV] = useState({
     language: report.language,
     report_date: report.report_date,

@@ -1,6 +1,6 @@
 "use client"
 
-import { useOptimistic, useState, useTransition } from "react"
+import { useOptimistic, useState } from "react"
 import { useLocale, useTranslations } from "next-intl"
 import { ChevronDown, Lock, Mail, MonitorSmartphone } from "lucide-react"
 import { toast } from "sonner"
@@ -8,6 +8,7 @@ import { Switch } from "@/components/ui/switch"
 import { useActionError } from "@/hooks/use-action-error"
 import { saveMyNotificationPreference } from "@/lib/actions/security"
 import { cn } from "@/lib/utils"
+import { useSafeTransition } from "@/hooks/use-safe-transition"
 
 export interface MyEventPref {
   code: string
@@ -27,7 +28,7 @@ export function MyNotificationPreferences({ rows }: { rows: MyEventPref[] }) {
   const locale = useLocale()
   const { message } = useActionError()
   const [open, setOpen] = useState(false)
-  const [, start] = useTransition()
+  const [, start] = useSafeTransition()
   const [state, update] = useOptimistic(rows, (s, patch: Pick<MyEventPref, "code" | "in_app" | "email">) =>
     s.map((r) => (r.code === patch.code ? { ...r, ...patch } : r)),
   )

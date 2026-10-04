@@ -8,14 +8,20 @@ import { PregnancyCard } from "@/components/pregnancy/pregnancy-card"
 import { OiChart } from "@/components/oi/oi-chart"
 import { MedicalDrawingCanvas } from "@/components/medical/medical-drawing-canvas"
 import { PrintConsent } from "@/components/print/print-views"
-import { cycle, history, pregnancy, refs } from "./fixtures"
+import { PatientHeader } from "@/components/patients/patient-header"
+import { QueueBoard } from "@/components/encounters/queue-board"
+import { DrawingEditor } from "@/components/drawings/drawing-editor"
+import { P } from "@/lib/permissions"
+import { cycle, history, patientCtx, pregnancy, queue, refs } from "./fixtures"
 
-const FORMS = ["history", "pregnancy", "oi", "drawing", "consent"] as const
+const FORMS = ["history", "pregnancy", "oi", "drawing", "consent", "header", "queue", "editor"] as const
+// Front-desk + doctor + billing rights, to show every action of the new screens.
+const PREVIEW_PERMISSIONS = Object.values(P)
 
 export function FormsPreview({ form }: { form: string }) {
   return (
     <AppProvider
-      session={{ userId: "dev", email: null, fullName: "Preview", roleCode: null, roleNameEn: null, roleNameAr: null, permissions: [], doctorId: null, preferences: {} }}
+      session={{ userId: "dev", email: null, fullName: "Preview", roleCode: null, roleNameEn: null, roleNameAr: null, permissions: ["header", "queue", "editor"].includes(form) ? PREVIEW_PERMISSIONS : [], doctorId: null, preferences: {} }}
       refs={refs}
     >
       <FormSaveProvider guard={false}>
@@ -47,6 +53,36 @@ export function FormsPreview({ form }: { form: string }) {
           {form === "drawing" && (
             <div className="paper mx-auto max-w-[210mm] p-6">
               <MedicalDrawingCanvas patientId="dev" visitId="dev" templateKey="pelvis_v1" initial={null} canEdit />
+            </div>
+          )}
+          {form === "header" && (
+            <div className="mx-auto max-w-6xl bg-background px-4 pt-14 sm:px-6 lg:px-8">
+              <PatientHeader ctx={patientCtx} />
+              <div className="h-[150vh] p-4 text-sm text-muted-foreground">Scroll to see the compact header.</div>
+            </div>
+          )}
+          {form === "queue" && (
+            <div className="mx-auto max-w-7xl">
+              <QueueBoard rows={queue} prepay />
+            </div>
+          )}
+          {form === "editor" && (
+            <div className="mx-auto max-w-4xl bg-background p-3">
+              <DrawingEditor
+                drawing={{
+                  id: "dev-drawing", patient_id: "dev", visit_id: "dev", image_id: null, template_key: "pelvis_v1", context: "gynecology", title: null, notes: "",
+                  shapes: [
+                    { id: "c1", type: "circle", x: 380, y: 300, w: 120, h: 90, color: "#e11d2e", size: 4 },
+                    { id: "a1", type: "arrow", points: [200, 150, 360, 290], color: "#1d4ed8", size: 4 },
+                    { id: "t1", type: "text", x: 520, y: 300, text: "Left ovary cyst 3cm", color: "#111827", size: 24, rotation: 0 },
+                  ],
+                  canvas_width: 1000, canvas_height: 700, preview_path: null, saved_versions: 0, status: "active",
+                  version: 1, created_at: "2026-10-04T08:00:00Z", updated_at: "2026-10-04T08:00:00Z", created_by: null, updated_by: null,
+                }}
+                background="/templates/pelvis_v1.svg"
+                canEdit
+                visitCompleted={false}
+              />
             </div>
           )}
           {form === "consent" && (

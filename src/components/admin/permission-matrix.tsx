@@ -1,6 +1,6 @@
 "use client"
 
-import { Fragment, useState, useTransition } from "react"
+import { Fragment, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
 import { Loader2, Plus } from "lucide-react"
@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input"
 import { useActionError } from "@/hooks/use-action-error"
 import { createRole, setRolePermission } from "@/lib/actions/admin"
 import type { Permission, Role } from "@/types/db"
+import { useSafeTransition } from "@/hooks/use-safe-transition"
 
 const LOCKED = new Set(["users.manage", "roles.manage"])
 
@@ -21,7 +22,7 @@ export function PermissionMatrix({ roles, permissions, grants: initial }: { role
   const { showError } = useActionError()
   const [grants, setGrants] = useState(new Set(initial))
   const [busy, setBusy] = useState<string | null>(null)
-  const [pending, start] = useTransition()
+  const [pending, start] = useSafeTransition()
   const [newRole, setNewRole] = useState({ code: "", name_en: "", name_ar: "" })
 
   const groups = permissions.reduce<Record<string, Permission[]>>((acc, p) => {

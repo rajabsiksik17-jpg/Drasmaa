@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
@@ -15,6 +15,7 @@ import { SectionCard } from "@/components/common/page"
 import { useActionError } from "@/hooks/use-action-error"
 import { saveWhatsappSettings } from "@/lib/actions/security"
 import { formatInternational, normalizeWhatsAppNumber } from "@/lib/messaging/whatsapp"
+import { useSafeTransition } from "@/hooks/use-safe-transition"
 
 type Settings = { whatsapp_enabled: boolean; whatsapp_country_code: string; whatsapp_open_mode: "auto" | "web" | "app" }
 
@@ -24,7 +25,7 @@ export function WhatsappSettings({ initial }: { initial: Settings }) {
   const { showError } = useActionError()
   const [v, setV] = useState(initial)
   const [sample, setSample] = useState("0791234567")
-  const [pending, start] = useTransition()
+  const [pending, start] = useSafeTransition()
   const normalized = normalizeWhatsAppNumber(sample, v.whatsapp_country_code)
 
   const save = () =>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
 import { AnimatePresence, motion } from "motion/react"
@@ -13,6 +13,7 @@ import { NativeSelect } from "@/components/common/native-select"
 import { useActionError } from "@/hooks/use-action-error"
 import { reorderConfigRows, saveConfigRow, type ConfigTable } from "@/lib/actions/admin"
 import { cn } from "@/lib/utils"
+import { useSafeTransition } from "@/hooks/use-safe-transition"
 
 export interface ConfigColumn {
   key: string
@@ -48,7 +49,7 @@ export function ConfigEditor({
   const [rows, setRows] = useState(initial)
   const [drafts, setDrafts] = useState<Record<string, Record<string, unknown>>>({})
   const [adding, setAdding] = useState<Record<string, unknown> | null>(null)
-  const [pending, start] = useTransition()
+  const [pending, start] = useSafeTransition()
   const [savedId, setSavedId] = useState<string | null>(null)
 
   const dirty = (id: string) => Object.keys(drafts[id] ?? {}).length > 0

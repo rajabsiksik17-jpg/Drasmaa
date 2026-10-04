@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState, useTransition } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
 import { motion } from "motion/react"
@@ -10,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { endSession, resendOtp, startVerification, verifyOtp, type VerificationState } from "@/lib/actions/auth"
 import { useNow } from "@/hooks/use-hydration"
+import { useSafeTransition } from "@/hooks/use-safe-transition"
 
 /** Second step of sign-in: the emailed one-time code. */
 export function OtpForm({ next }: { next: string }) {
@@ -19,7 +20,7 @@ export function OtpForm({ next }: { next: string }) {
   const [code, setCode] = useState("")
   const [remember, setRemember] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [pending, startTransition] = useTransition()
+  const [pending, startTransition] = useSafeTransition()
   const started = useRef(false)
   const now = useNow(1000)
 

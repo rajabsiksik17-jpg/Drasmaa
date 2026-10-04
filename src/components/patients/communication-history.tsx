@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useState, useTransition } from "react"
+import { useCallback, useState } from "react"
 import { useLocale, useTranslations } from "next-intl"
 import { AnimatePresence, motion } from "motion/react"
 import { Bell, ChevronDown, FileText, Loader2, Mail, MessageCircle, MessagesSquare, Send, Settings2 } from "lucide-react"
@@ -13,6 +13,7 @@ import { useRealtime } from "@/lib/realtime/use-realtime"
 import { formatDateTime } from "@/lib/dates"
 import { P } from "@/lib/permissions"
 import { cn } from "@/lib/utils"
+import { useSafeTransition } from "@/hooks/use-safe-transition"
 
 const CHANNEL_ICON = { whatsapp: MessageCircle, email: Mail, in_app: Bell, system: Settings2 }
 
@@ -34,7 +35,7 @@ export function CommunicationHistory({ patientId, initial }: { patientId: string
   const [expanded, setExpanded] = useState<string | null>(null)
   const [more, setMore] = useState(initial.length === 30)
   const [compose, setCompose] = useState<ComposerChannel | null>(null)
-  const [pending, start] = useTransition()
+  const [pending, start] = useSafeTransition()
 
   const load = useCallback(async () => {
     const res = await listCommunications(patientId)

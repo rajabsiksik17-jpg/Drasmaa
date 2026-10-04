@@ -5,7 +5,7 @@ import { Pill, Receipt, ScanLine } from "lucide-react"
 import { CollapsibleSection } from "@/components/common/collapsible-section"
 import { VisitImaging, type DrawingWithBackground } from "@/components/drawings/visit-imaging"
 import { PrescriptionEditor, type PrescriptionWithItems } from "@/components/prescriptions/prescription-editor"
-import { BillingSummary, type InvoiceSummary } from "@/components/accounting/billing-summary"
+import { VisitBill, type VisitBillInvoice } from "@/components/accounting/visit-bill"
 import type { ClinicalContext, VisitStatus } from "@/types/db"
 
 /** Visit sections that sit after the clinical forms: imaging, prescription, billing. */
@@ -15,6 +15,7 @@ export function VisitExtras({
   status,
   context,
   drawings,
+  archivedDrawings = [],
   prescriptions,
   invoice,
   show,
@@ -24,8 +25,9 @@ export function VisitExtras({
   status: VisitStatus
   context: ClinicalContext
   drawings: DrawingWithBackground[]
+  archivedDrawings?: DrawingWithBackground[]
   prescriptions: PrescriptionWithItems[]
-  invoice: InvoiceSummary | null
+  invoice: VisitBillInvoice | null
   show: { imaging: boolean; prescriptions: boolean }
 }) {
   const t = useTranslations("visits")
@@ -39,6 +41,7 @@ export function VisitExtras({
             visitId={visitId}
             context={context}
             items={drawings}
+            archived={archivedDrawings}
             visitCompleted={status === "completed"}
             visitCancelled={status === "cancelled"}
           />
@@ -50,8 +53,8 @@ export function VisitExtras({
         </CollapsibleSection>
       )}
       {invoice && (
-        <CollapsibleSection id="vx-billing" title={t("sec.billing")} icon={Receipt} defaultOpen={status === "completed"}>
-          <BillingSummary invoice={invoice} />
+        <CollapsibleSection id="vx-billing" title={t("sec.billing")} icon={Receipt} defaultOpen={status === "completed" || status === "in_progress"}>
+          <VisitBill invoice={invoice} editable={status !== "cancelled"} />
         </CollapsibleSection>
       )}
     </>

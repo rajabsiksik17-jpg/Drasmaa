@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
 import { motion } from "motion/react"
@@ -21,6 +21,7 @@ import { useActionError } from "@/hooks/use-action-error"
 import { createPregnancyCase, startVisit } from "@/lib/actions/clinical"
 import { cn } from "@/lib/utils"
 import type { VisitType } from "@/types/db"
+import { useSafeTransition } from "@/hooks/use-safe-transition"
 
 const TYPES: { type: VisitType; icon: LucideIcon; tone: string }[] = [
   { type: "pregnancy", icon: Baby, tone: "text-rose-600 bg-rose-500/10 dark:text-rose-300" },
@@ -42,31 +43,34 @@ export function StartVisitDialog({
   onOpenChange,
   patientId,
   appointmentId,
+  encounterId,
   suggested,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   patientId: string
   appointmentId?: string | null
+  /** Today's clinic visit the medical visit belongs to (queue). */
+  encounterId?: string | null
   suggested?: VisitType | null
 }) {
   const t = useTranslations("visits")
   const router = useRouter()
   const { message } = useActionError()
-  const [pending, startTransition] = useTransition()
+  const [pending, startTransition] = useSafeTransition()
   const [busyType, setBusyType] = useState<VisitType | null>(null)
   const [askPregnancy, setAskPregnancy] = useState(false)
 
   const begin = (type: VisitType, caseId?: string) => {
     setBusyType(type)
     startTransition(async () => {
-      const res = await startVisit({ patientId, visitType: type, appointmentId: appointmentId ?? null, caseId: caseId ?? null })
+      const res = await startVisit({ patientId, visitType: type, appointmentId: appointmentId ?? null, caseId: caseId ?? null, encounterId: encounterId ?? null })
       if (!res.ok) {
         if (res.error.code === "pregnancyCaseRequired") {
           setAskPregnancy(true)
           return
         }
-        toast.error(message(res.error))
+        toast.error(message(res.error, "startVisit"))
         setBusyType(null)
         return
       }

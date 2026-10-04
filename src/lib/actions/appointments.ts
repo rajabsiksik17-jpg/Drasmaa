@@ -23,6 +23,8 @@ const appointmentSchema = z.object({
   source_visit_id: z.uuid().optional().nullable(),
   service_id: z.uuid().optional().nullable(),
   no_charge: z.boolean().optional(),
+  /** Explicit decision to book outside the working hours (permission + flag). */
+  outside_working_hours: z.boolean().optional(),
 })
 
 export type AppointmentInput = z.input<typeof appointmentSchema>
@@ -42,6 +44,7 @@ export async function createAppointment(input: AppointmentInput): Promise<Action
   if (rest.payment_method === "insurance" && !rest.insurance_company_id) {
     return fail("validation", ["insurance_company_id"])
   }
+  if (rest.outside_working_hours && !hasPermission(auth.session, P.appointmentsOutsideHours)) return fail("forbidden")
 
   const supabase = await createClient()
   const { data, error } = await supabase
@@ -147,6 +150,7 @@ export async function rescheduleAppointment(input: {
   doctor_id?: string | null
   duration_minutes?: number | null
   notes?: string | null
+  outside_working_hours?: boolean
 }): Promise<ActionResult<{ id: string }>> {
   const auth = await authorize(P.appointmentsEdit)
   if (auth.error) return auth.error
@@ -157,10 +161,12 @@ export async function rescheduleAppointment(input: {
     doctor_id: z.uuid().nullable().optional(),
     duration_minutes: z.number().int().min(5).max(480).nullable().optional(),
     notes: z.string().max(1000).nullable().optional(),
+    outside_working_hours: z.boolean().optional(),
   })
   const parsed = schema.safeParse(input)
   if (!parsed.success) return fail("validation", parsed.error.issues.map((i) => i.path.join(".")))
   const v = parsed.data
+  if (v.outside_working_hours && !hasPermission(auth.session, P.appointmentsOutsideHours)) return fail("forbidden")
   const supabase = await createClient()
   const { data, error } = await supabase.rpc("reschedule_appointment", {
     p_appointment_id: v.id,
@@ -168,6 +174,7 @@ export async function rescheduleAppointment(input: {
     p_doctor_id: v.doctor_id ?? null,
     p_duration_minutes: v.duration_minutes ?? null,
     p_notes: v.notes ?? null,
+    p_outside_working_hours: !!v.outside_working_hours,
   })
   if (error) return dbFail("rescheduleAppointment", error)
   revalidateAppointments()

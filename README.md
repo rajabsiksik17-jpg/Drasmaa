@@ -48,6 +48,9 @@ supabase/migrations   0001 core (roles, permissions, config) · 0002 patients ·
                       documents · 0013 built-in message templates · 0014 center information,
                       pricing catalog, invoices, payments, cash register · 0015 ultrasound images &
                       drawings, medication catalog, prescriptions, medical reports, report templates
+                      · 0016 clinic workflow: clinic visits (encounters) separate from appointments,
+                      payment workflow, registration fee, working hours, doctor schedules/prices,
+                      discount limits, idempotent payments, drawing archive/restore
 src/lib/accounting    date ranges, accounting reports (PDF/CSV) — totals are computed only in the DB
 src/lib/drawing       drawing shapes, eraser hit-testing (Konva editor + exact SVG for print/PDF)
 src/lib/security      encryption (AES-256-GCM), OTP, device cookie, rate limiting, security logs
@@ -185,6 +188,35 @@ messages/             en.json, ar.json (identical key sets, enforced by tests)
   identity snapshot, version history after finalization, filters, and View/Edit/Duplicate/PDF/Print/WhatsApp/Email.
 - New permissions: `accounting.*`, `pricing.*`, `reports.*`, `prescriptions.*`, `medications.manage`,
   `drawings.*`, enforced by RLS and server actions (not by the UI alone).
+
+## Clinic workflow (appointments vs. visits)
+
+- An **appointment** is a planned time slot. A **clinic visit** (`encounters`) is the patient's real presence:
+  arrival time from the database clock, queue status, bill. Walk-ins need no appointment: **Create visit now**
+  (patient header, Today's visits, or the last step of new-patient registration). Checking in an appointment
+  opens its clinic visit automatically; the doctor's medical visit (forms, ultrasound, prescription) belongs to it.
+- **Today's visits** (`/today`) is the live queue (realtime, scoped to today). Lanes follow the
+  **payment workflow** (Admin → Billing & workflow, default ON):
+  - ON: registration → bill → payment → doctor queue → doctor → checkout. Paying the bill moves the patient to
+    the doctor's queue automatically; sending an unpaid patient needs a reason.
+  - OFF: registration → doctor queue → doctor → bill finalized (the doctor adds services / discounts within the
+    role limit in the visit) → payment → checkout.
+- **First visit**: a new patient's first clinic visit gets the *registration / file opening* service and the visit
+  service as two separate invoice lines (both from the price list, snapshotted). Patient + husband + visit + bill
+  are created in one database transaction.
+- **Working hours**: appointment slots come from the doctor's own weekly schedule or the clinic hours/days.
+  Booking outside them is an explicit choice ("Allow outside working hours"), needs the
+  `appointments.outside_hours` permission, is stored as `outside_working_hours` and audited.
+- **Discounts**: percent or fixed, reason required, limited per role (`roles.max_discount_percent`); who/when is
+  stored on the invoice. Invoice states: open, partially paid, paid, no charge, refunded, void (never deleted).
+- **Payments** are recorded in one transaction per checkout and are idempotent (a double click or a retried
+  request records them once). Only enabled payment methods are accepted.
+- **Users & doctors**: edit, deactivate/reactivate (signs the user out), delete only when there is no history.
+  Doctor profile: names, titles, specialty, license, phone, e-mail, photo, weekly schedule, own prices.
+- **Ultrasound images** upload directly to private storage with progress, cancel and retry (no 1 MB Server
+  Action limit); the server verifies the stored file (signature, size, SHA-256) before registering it. Drawings:
+  select / move / resize / rotate / delete individual objects with undo/redo; deleting archives with a reason
+  (who/when kept) and can be restored.
 
 ## Deployment (production checklist)
 

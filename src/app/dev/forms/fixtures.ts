@@ -2,17 +2,25 @@
 import type { ReferenceData } from "@/components/app-context"
 import type { HistoryExamData } from "@/components/medical/history-exam-form"
 import type { CycleBundle } from "@/lib/data/cycle"
+import type { QueueEncounter } from "@/lib/data/encounters"
+import type { PatientContext } from "@/lib/data/patient"
 import type { PregnancyCase, PregnancyFollowup } from "@/types/db"
 
 const meta = { version: 1, created_at: "2026-10-01T08:00:00Z", updated_at: "2026-10-01T08:00:00Z", created_by: null, updated_by: null }
 const pid = "11111111-1111-4111-8111-111111111111"
 
 export const refs: ReferenceData = {
-  doctors: [],
+  doctors: [
+    { ...meta, id: "d1", profile_id: null, display_name_en: "Dr. Sample One", display_name_ar: "د. عينة أولى", department_id: null, specialty: "OB/GYN", color: "#0f766e", active: true, sort_order: 1 },
+  ],
   departments: [],
   insurance: [],
   investigationTypes: [],
-  services: [],
+  services: [
+    { id: "s0", code: "registration", category: "registration", name_en: "Patient file opening", name_ar: "فتح ملف", price_cash: 10, price_insurance: null, billable: true, insurance_eligible: false, appointment_type: null, auto_trigger: "registration", requires_doctor: false, default_duration_minutes: null, active: true, sort_order: 0 },
+    { id: "s1", code: "consultation", category: "consultation", name_en: "Consultation", name_ar: "استشارة", price_cash: 30, price_insurance: 20, billable: true, insurance_eligible: true, appointment_type: null, auto_trigger: null, requires_doctor: true, default_duration_minutes: 15, active: true, sort_order: 1 },
+  ],
+  doctorHours: [],
   options: [
     { ...meta, id: "o1", category: "oi_protocol", value: "antagonist", label_en: "Antagonist", label_ar: "بروتوكول المضاد", active: true, sort_order: 1 },
     { ...meta, id: "o2", category: "delivery_type", value: "nvd", label_en: "Normal (NVD)", label_ar: "ولادة طبيعية", active: true, sort_order: 1 },
@@ -29,6 +37,10 @@ export const refs: ReferenceData = {
     working_hours_end: "18:00",
     max_upload_mb: 20,
     logo_path: null,
+    collect_payment_before_consultation: true,
+    enforce_working_hours: true,
+    working_days: [0, 1, 2, 3, 4, 5, 6],
+    payment_methods: ["cash", "card", "transfer", "other"],
   },
 }
 
@@ -122,4 +134,49 @@ export const pregnancy: { pcase: PregnancyCase; followups: PregnancyFollowup[] }
       bp_systolic: 115, bp_diastolic: 75, complaint: "None", ultrasound: "NT normal", lab: "", plan: "Anomaly scan at 20 w",
     },
   ],
+}
+
+// ---- Workflow previews (patient header, today's queue) ----
+const enc = (id: string, status: QueueEncounter["status"], name: string, minutesAgo: number, balance: number): QueueEncounter => ({
+  ...meta,
+  id,
+  patient_id: pid,
+  doctor_id: "d1",
+  appointment_id: null,
+  service_id: "s1",
+  reason: "Pelvic pain since two days",
+  source: "walk_in",
+  status,
+  prepay: true,
+  queue_date: "2026-10-04",
+  arrived_at: new Date(Date.UTC(2026, 9, 4, 6, 0) - minutesAgo * 60_000).toISOString(),
+  sent_to_doctor_at: null,
+  with_doctor_at: null,
+  finished_at: null,
+  checked_out_at: null,
+  cancelled_at: null,
+  status_reason: null,
+  patient: { id: pid, full_name: name, patient_code: `PAT-0001${id}`, dob: "1994-06-14", phone: "0790000001" },
+  invoices: [{ id: `inv-${id}`, invoice_number: `INV-2026-00000${id}`, total: 40, balance_patient: balance, status: balance > 0 ? "open" : "paid" }],
+  visits: [],
+})
+
+export const queue: QueueEncounter[] = [
+  enc("1", "waiting_payment", "سارة أحمد محمود العبدالله", 25, 40),
+  enc("2", "waiting_doctor", "Lina Khaled", 18, 0),
+  enc("3", "with_doctor", "مريم يوسف", 10, 0),
+  enc("4", "awaiting_checkout", "Huda Samir Al-Haddad with a very long family name", 5, 25),
+]
+
+export const patientCtx: PatientContext = {
+  patient: history.patient,
+  husband: history.husband,
+  allergy: { ...meta, patient_id: pid, allergy: "Penicillin, sulfa drugs" },
+  canSeeAllergy: true,
+  todayAppointment: null,
+  activeFertilityCase: null,
+  activePregnancy: { ...pregnancy.pcase },
+  activeCycle: { id: "c1", cycle_number: 2, fertility_case_id: "f1", started_at: "2026-09-20T08:00:00Z" },
+  openEncounter: queue[0],
+  pregnancyGa: { weeks: 12, days: 3 },
 }

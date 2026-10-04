@@ -16,6 +16,7 @@ export default async function PatientLayout({ children, params }: LayoutProps<"/
           { table: "patient_husbands", filter: `patient_id=eq.${patientId}` },
           { table: "patient_allergies", filter: `patient_id=eq.${patientId}` },
           { table: "appointments", filter: `patient_id=eq.${patientId}` },
+          { table: "encounters", filter: `patient_id=eq.${patientId}` },
         ]}
       />
       <PatientHeader ctx={ctx} />

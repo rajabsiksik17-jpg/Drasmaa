@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
 import { Archive, FileText, Loader2, RectangleHorizontal, RectangleVertical } from "lucide-react"
@@ -13,6 +13,7 @@ import { SectionCard } from "@/components/common/page"
 import { useActionError } from "@/hooks/use-action-error"
 import { saveDocumentRetention, saveDocumentTemplate } from "@/lib/actions/templates"
 import { cn } from "@/lib/utils"
+import { useSafeTransition } from "@/hooks/use-safe-transition"
 
 export interface DocumentTemplateRow {
   document_type: string
@@ -72,7 +73,7 @@ function TemplateForm({ template }: { template: DocumentTemplateRow }) {
   const router = useRouter()
   const { showError } = useActionError()
   const [v, setV] = useState(template)
-  const [pending, start] = useTransition()
+  const [pending, start] = useSafeTransition()
   const toggle = (k: keyof DocumentTemplateRow, label: string) => (
     <label className="flex items-center justify-between gap-3 text-sm">
       {label}
@@ -167,7 +168,7 @@ function RetentionCard({ initial }: { initial: number | null }) {
   const { showError } = useActionError()
   const [enabled, setEnabled] = useState(initial !== null)
   const [days, setDays] = useState(initial ?? 365)
-  const [pending, start] = useTransition()
+  const [pending, start] = useSafeTransition()
   return (
     <SectionCard title={t("retention")} icon={Archive}>
       <p className="mb-3 text-sm text-muted-foreground">{t("retentionHint")}</p>
