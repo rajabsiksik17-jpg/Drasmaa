@@ -172,7 +172,7 @@ function LineRow({
           <p className="font-medium break-words" dir="auto">
             {name}
             {custom && <span className="ms-2 rounded bg-violet-500/12 px-1.5 text-[10px] font-medium text-violet-700 dark:text-violet-300">{t("custom")}</span>}
-            {l.source && l.source !== "manual" && <span className="ms-2 rounded bg-muted px-1.5 text-[10px] text-muted-foreground">{ta(`sources.${l.source}`)}</span>}
+            {l.source && l.source !== "manual" && ta.has(`sources.${l.source}`) && <span className="ms-2 rounded bg-muted px-1.5 text-[10px] text-muted-foreground">{ta(`sources.${l.source}`)}</span>}
           </p>
           <p className="text-xs text-muted-foreground tabular-nums" dir="ltr">
             {l.quantity} × {Number(l.unit_price).toFixed(3)}

@@ -23,6 +23,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { NativeSelect } from "@/components/common/native-select"
 import { DateInput } from "@/components/common/date-input"
+import { FieldMessage } from "@/components/forms/field"
 import { PatientPicker, type PickedPatient } from "@/components/patients/patient-picker"
 import { useCan, useRefs, useSession } from "@/components/app-context"
 import { P } from "@/lib/permissions"
@@ -54,6 +55,25 @@ const schema = z
   })
 
 type FormValues = z.infer<typeof schema>
+
+/** Fields the server can reject; their errors land under the same controls. */
+const SERVER_FIELDS: Partial<Record<keyof FormValues, true>> = {
+  doctor_id: true,
+  department_id: true,
+  visit_type: true,
+  date: true,
+  time: true,
+  insurance_company_id: true,
+  notes: true,
+}
+const REQUIRED_MESSAGE: Partial<Record<keyof FormValues, string>> = {
+  doctor_id: "chooseDoctor",
+  department_id: "chooseDepartment",
+  visit_type: "chooseVisitType",
+  date: "dateRequired",
+  time: "timeRequired",
+  insurance_company_id: "chooseInsurer",
+}
 
 const toMin = (s: string) => {
   const [h, m] = s.slice(0, 5).split(":").map(Number)
@@ -94,6 +114,7 @@ export interface AppointmentDialogProps {
 export function AppointmentDialog({ open, onOpenChange, patient: fixedPatient, reschedule, defaults, sourceVisitId, onDone }: AppointmentDialogProps) {
   const t = useTranslations("appointments")
   const tc = useTranslations("common")
+  const tv = useTranslations("validation")
   const refs = useRefs()
   const session = useSession()
   const router = useRouter()
@@ -230,6 +251,10 @@ export function AppointmentDialog({ open, onOpenChange, patient: fixedPatient, r
             outside_working_hours: enforce && timeOutside && !!values.outside_working_hours,
           })
       if (!res.ok) {
+        const known = (res.error.fields ?? []).filter((f): f is keyof FormValues => f in SERVER_FIELDS)
+        for (const f of known) form.setError(f, { message: "invalid" }, { shouldFocus: f === known[0] })
+        if (res.error.code === "outsideHours") form.setError("time", { message: "outsideHours" }, { shouldFocus: true })
+        if (res.error.code === "doubleBooking") form.setError("time", { message: "slotTaken" }, { shouldFocus: true })
         toast.error(message(res.error, reschedule ? "rescheduleAppointment" : "createAppointment"))
         if (res.error.code === "doubleBooking") void busy.refetch()
         return
@@ -239,9 +264,21 @@ export function AppointmentDialog({ open, onOpenChange, patient: fixedPatient, r
       onDone?.(res.data.id)
       router.refresh()
     })
+  }, () => {
+    // Show every problem at once, the patient included.
+    if (!reschedule && !patient) setPatientError(true)
   })
 
   const err = (name: keyof FormValues) => form.formState.errors[name]
+  const fieldMsg = (name: keyof FormValues) => {
+    const e = err(name)
+    if (!e) return null
+    const m = String(e.message ?? "")
+    if (m === "outsideHours") return t("outsideHoursBlocked")
+    if (m === "slotTaken") return t("slotTaken")
+    if (m === "required") return tv(REQUIRED_MESSAGE[name] ?? "required")
+    return tv("invalid")
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -265,7 +302,7 @@ export function AppointmentDialog({ open, onOpenChange, patient: fixedPatient, r
               ) : (
                 <PatientPicker value={patient} onChange={(p) => { setPatient(p); setPatientError(false) }} invalid={patientError} />
               )}
-              {patientError && <p className="text-xs text-destructive">{tc("required")}</p>}
+              <FieldMessage id="ap-patient">{patientError && tv("choosePatient")}</FieldMessage>
             </div>
           )}
 
@@ -278,6 +315,7 @@ export function AppointmentDialog({ open, onOpenChange, patient: fixedPatient, r
                   <option key={d.value} value={d.value}>{d.label}</option>
                 ))}
               </NativeSelect>
+              <FieldMessage id="ap-doctor">{fieldMsg("doctor_id")}</FieldMessage>
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="ap-dept">{t("department")}</Label>
@@ -287,6 +325,7 @@ export function AppointmentDialog({ open, onOpenChange, patient: fixedPatient, r
                   <option key={d.value} value={d.value}>{d.label}</option>
                 ))}
               </NativeSelect>
+              <FieldMessage id="ap-dept">{fieldMsg("department_id")}</FieldMessage>
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="ap-type">{t("visitType")}</Label>
@@ -296,6 +335,7 @@ export function AppointmentDialog({ open, onOpenChange, patient: fixedPatient, r
                   <option key={o.value} value={o.value}>{o.label}</option>
                 ))}
               </NativeSelect>
+              <FieldMessage id="ap-type">{fieldMsg("visit_type")}</FieldMessage>
             </div>
             <div className="grid grid-cols-[1fr_7rem] gap-3">
               <div className="grid gap-1.5">
@@ -314,6 +354,7 @@ export function AppointmentDialog({ open, onOpenChange, patient: fixedPatient, r
                     />
                   )}
                 />
+                <FieldMessage id="ap-date">{fieldMsg("date")}</FieldMessage>
               </div>
               <div className="grid gap-1.5">
                 <Label htmlFor="ap-duration">{t("duration")}</Label>
@@ -369,6 +410,7 @@ export function AppointmentDialog({ open, onOpenChange, patient: fixedPatient, r
                 </div>
               )}
             />
+            <FieldMessage id="ap-time">{fieldMsg("time")}</FieldMessage>
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               <span>{t("customTime")}</span>
               <Input type="time" className="h-8 w-28" value={time} onChange={(e) => form.setValue("time", e.target.value, { shouldValidate: true })} />
@@ -413,6 +455,7 @@ export function AppointmentDialog({ open, onOpenChange, patient: fixedPatient, r
                       <option key={o.value} value={o.value}>{o.label}</option>
                     ))}
                   </NativeSelect>
+                  <FieldMessage id="ap-ins">{fieldMsg("insurance_company_id")}</FieldMessage>
                 </div>
               )}
             </div>

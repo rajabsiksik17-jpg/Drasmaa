@@ -67,6 +67,17 @@ export function Field({
   )
 }
 
+/** The error line under a control that is laid out by hand (not via <Field>). */
+export function FieldMessage({ id, children }: { id: string; children?: React.ReactNode }) {
+  if (!children) return null
+  return (
+    <p id={`${id}-error`} role="alert" className="flex items-start gap-1 text-xs font-medium text-destructive">
+      <AlertCircle className="mt-px size-3.5 shrink-0" />
+      {children}
+    </p>
+  )
+}
+
 type Rules = Record<string, () => string | null | undefined | false>
 
 /**
@@ -83,7 +94,9 @@ export function useFieldErrors() {
     requestAnimationFrame(() => {
       const el = document.getElementById(id)
       el?.scrollIntoView({ behavior: "smooth", block: "center" })
-      ;(el as HTMLElement | null)?.focus({ preventScroll: true })
+      // A wrapper (e.g. a picker) hands focus to its first control.
+      const target = el && !el.matches("input, select, textarea, button") ? (el.querySelector<HTMLElement>("input, select, textarea, button") ?? el) : el
+      target?.focus({ preventScroll: true })
     })
   }, [])
 
