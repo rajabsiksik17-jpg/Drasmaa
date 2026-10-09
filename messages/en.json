@@ -3191,6 +3191,18 @@
       "patient_id": "Choose a patient.",
       "method": "Choose a payment method.",
       "reason": "A reason is required."
-    }
+    },
+    "required": "This field is required.",
+    "choosePatient": "Choose a patient.",
+    "chooseDoctor": "Choose a doctor.",
+    "chooseDepartment": "Choose a department.",
+    "chooseVisitType": "Choose the visit type.",
+    "chooseInsurer": "Choose the insurance company.",
+    "dateRequired": "Choose a date.",
+    "timeRequired": "Choose a time.",
+    "doctorRequiredForService": "This service needs a doctor. Choose one.",
+    "amountRequired": "Enter the amount.",
+    "amountPositive": "The amount must be more than 0.",
+    "amountExceedsBalance": "More than the remaining balance ({max})."
   }
 }

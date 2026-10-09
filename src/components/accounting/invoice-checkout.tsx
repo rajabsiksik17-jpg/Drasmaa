@@ -17,6 +17,7 @@ import { SectionCard } from "@/components/common/page"
 import { ReasonDialog } from "@/components/forms/correction-context"
 import { useCan, useRefs } from "@/components/app-context"
 import { BillLinesEditor } from "@/components/accounting/bill-lines-editor"
+import { FieldMessage, useFieldErrors } from "@/components/forms/field"
 import { EncounterStatusBadge } from "@/components/encounters/encounter-status"
 import { ExportMenu } from "@/components/documents/export-menu"
 import { InvoiceStatusBadge, Money } from "@/components/accounting/money"
@@ -106,7 +107,25 @@ export function InvoiceCheckout({ bundle, insurers }: { bundle: InvoiceBundle; i
   const methods = refs.settings.payment_methods
   const payTotal = payRows.reduce((s, r) => s + (Number(r.amount) || 0), 0)
   const setRow = (i: number, patch: Partial<PayRow>) => setPayRows((rows) => rows.map((r, j) => (j === i ? { ...r, ...patch } : r)))
-  const pay = () =>
+  const payErrors = useFieldErrors()
+  const pay = () => {
+    // Each row checked on its own, then each payer against its balance — the
+    // database enforces the same rules; this only says it before sending.
+    const sumOf = (payer: PayRow["payer"]) => round3(payRows.filter((r) => r.payer === payer).reduce((s, r) => s + (Number(r.amount) || 0), 0))
+    const rules: Record<string, () => string | false | null> = {}
+    payRows.forEach((r, i) => {
+      rules[`pay-amt-${i}`] = () => {
+        if (r.amount === "") return payErrors.t("amountRequired")
+        const n = Number(r.amount)
+        if (!Number.isFinite(n) || n <= 0) return payErrors.t("amountPositive")
+        const balance = r.payer === "insurance" ? inv.balance_insurance : inv.balance_patient
+        const firstOfPayer = payRows.findIndex((x) => x.payer === r.payer) === i
+        if (firstOfPayer && sumOf(r.payer) > round3(balance) + 0.0005)
+          return payErrors.t("amountExceedsBalance", { max: round3(Math.max(balance, 0)).toFixed(3) })
+        return null
+      }
+    })
+    if (!payErrors.validate(rules)) return
     start(async () => {
       const payments = payRows
         .filter((r) => Number(r.amount) > 0)
@@ -119,8 +138,10 @@ export function InvoiceCheckout({ bundle, insurers }: { bundle: InvoiceBundle; i
         action: { label: t("printReceipt"), onClick: () => window.open(`/print/receipt/${res.data.ids[0]}?autoprint=1`, "_blank", "noopener") },
       })
       router.refresh()
+      payErrors.setErrors({})
       setPayRows([{ payer: "patient", method: methods[0] ?? "cash", amount: "", reference: "" }])
     })
+  }
 
   // ---- refunds / void
   const [refund, setRefund] = useState<{ id: string; max: number; amount: string; reason: string } | null>(null)
@@ -263,14 +284,35 @@ export function InvoiceCheckout({ bundle, insurers }: { bundle: InvoiceBundle; i
                         ))}
                       </NativeSelect>
                       {payRows.length > 1 ? (
-                        <Button size="icon-sm" variant="ghost" onClick={() => setPayRows((rows) => rows.filter((_, j) => j !== i))} aria-label={t("remove")}>
+                        <Button size="icon-sm" variant="ghost" onClick={() => { setPayRows((rows) => rows.filter((_, j) => j !== i)); payErrors.setErrors({}) }} aria-label={t("remove")}>
                           <X />
                         </Button>
                       ) : (
                         <span />
                       )}
-                      <Input type="number" min={0} step="0.001" dir="ltr" value={r.amount} onChange={(e) => setRow(i, { amount: e.target.value })} placeholder={t("amount")} aria-label={t("amount")} />
+                      <Input
+                        id={`pay-amt-${i}`}
+                        type="number"
+                        inputMode="decimal"
+                        min={0}
+                        step="0.001"
+                        dir="ltr"
+                        value={r.amount}
+                        onChange={(e) => {
+                          setRow(i, { amount: e.target.value })
+                          payErrors.clear(`pay-amt-${i}`)
+                        }}
+                        placeholder={t("amount")}
+                        aria-label={t("amount")}
+                        aria-invalid={!!payErrors.errors[`pay-amt-${i}`] || undefined}
+                        aria-describedby={payErrors.errors[`pay-amt-${i}`] ? `pay-amt-${i}-error` : undefined}
+                      />
                       <Input value={r.reference} onChange={(e) => setRow(i, { reference: e.target.value })} placeholder={t("reference")} aria-label={t("reference")} className="col-span-2" />
+                      {payErrors.errors[`pay-amt-${i}`] && (
+                        <div className="col-span-3">
+                          <FieldMessage id={`pay-amt-${i}`}>{payErrors.errors[`pay-amt-${i}`]}</FieldMessage>
+                        </div>
+                      )}
                     </motion.div>
                   ))}
                 </AnimatePresence>
@@ -280,7 +322,7 @@ export function InvoiceCheckout({ bundle, insurers }: { bundle: InvoiceBundle; i
                     {t("splitPayment")}
                   </Button>
                 )}
-                <Button className="w-full" onClick={pay} disabled={pending || payTotal <= 0}>
+                <Button className="w-full" onClick={pay} disabled={pending}>
                   {pending ? <Loader2 className="animate-spin" /> : <CheckCircle2 />}
                   {t("recordPayment")} · <Money value={payTotal} currency={c} />
                 </Button>

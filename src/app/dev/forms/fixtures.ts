@@ -1,3 +1,5 @@
+import type { EditableLine } from "@/components/accounting/bill-lines-editor"
+import type { AppointmentWithRefs } from "@/types/db"
 // Fictional sample rows for the development-only form preview. Not used in production.
 import type { ReferenceData } from "@/components/app-context"
 import type { HistoryExamData } from "@/components/medical/history-exam-form"
@@ -196,3 +198,29 @@ export const timeline: TimelineEvent[] = [
   ev("prescription", "2026-10-03T11:50:00Z", null, "issued"),
   ev("document", "2026-09-03T09:00:00Z", "lab", "active"),
 ]
+
+export const billLines: EditableLine[] = [
+  { id: "l1", service_id: "s-consult", description_en: "Consultation", description_ar: "كشفية", quantity: 1, unit_price: 20, default_price: 25, discount_amount: 0, notes: null, line_total: 20, package_line_id: null, source: "appointment" },
+  { id: "l2", service_id: "s-us", description_en: "Ultrasound", description_ar: "تصوير ألتراساوند", quantity: 2, unit_price: 15, default_price: 15, discount_amount: 5, notes: "Follow-up scan", line_total: 25, package_line_id: null, source: "ultrasound" },
+  { id: "l3", service_id: null, description_en: "Extra dressing", description_ar: "غيار إضافي", quantity: 1, unit_price: 3.5, default_price: null, discount_amount: 0, notes: null, line_total: 3.5, package_line_id: null, source: "manual" },
+]
+
+const appt = (id: string, time: string, status: AppointmentWithRefs["status"], visit?: AppointmentWithRefs["visit"]): AppointmentWithRefs => ({
+  id, patient_id: "dev", doctor_id: "d1", department_id: "dep1", visit_type: "follow_up", scheduled_at: `2026-10-09T${time}:00+03:00`,
+  duration_minutes: 20, ends_at: `2026-10-09T${time}:00+03:00`, status, notes: null, payment_method: "cash", insurance_company_id: null,
+  checked_in_at: null, with_doctor_at: null, completed_at: null, cancelled_at: null, cancel_reason: null, rescheduled_from_id: null,
+  source_visit_id: null, service_id: null, no_charge: false, outside_working_hours: false,
+  version: 1, created_at: "2026-10-08T08:00:00Z", updated_at: "2026-10-08T08:00:00Z", created_by: null, updated_by: null,
+  patient: { id: "dev", full_name: "سارة أحمد", patient_code: "P-000123", phone: "0790000000", dob: "1994-02-11" },
+  doctor: { id: "d1", display_name_en: "Dr. Asmaa", display_name_ar: "د. أسماء", color: "#7c3aed" },
+  department: { id: "dep1", code: "gyn", name_en: "Gynecology", name_ar: "النسائية" },
+  visit,
+})
+
+export const appointments: AppointmentWithRefs[] = [
+  appt("a1", "09:30", "completed", { status: "checked_out", arrived_at: "2026-10-09T06:20:00Z", paid: true, balance: 0 }),
+  appt("a2", "10:30", "with_doctor", { status: "awaiting_checkout", arrived_at: "2026-10-09T07:17:00Z", paid: false, balance: 12.5 }),
+  appt("a3", "11:00", "checked_in", { status: "waiting_doctor", arrived_at: "2026-10-09T07:55:00Z", paid: null, balance: null }),
+  appt("a4", "12:00", "scheduled"),
+]
+

@@ -3191,6 +3191,18 @@
       "patient_id": "اختر المريضة.",
       "method": "اختر طريقة الدفع.",
       "reason": "السبب مطلوب."
-    }
+    },
+    "required": "هذا الحقل مطلوب.",
+    "choosePatient": "اختر المريضة.",
+    "chooseDoctor": "اختر الطبيبة.",
+    "chooseDepartment": "اختر القسم.",
+    "chooseVisitType": "اختر نوع الزيارة.",
+    "chooseInsurer": "اختر شركة التأمين.",
+    "dateRequired": "اختر التاريخ.",
+    "timeRequired": "اختر الوقت.",
+    "doctorRequiredForService": "هذه الخدمة تحتاج طبيبة. اخترها.",
+    "amountRequired": "أدخل المبلغ.",
+    "amountPositive": "يجب أن يكون المبلغ أكبر من 0.",
+    "amountExceedsBalance": "أكبر من الرصيد المتبقي ({max})."
   }
 }

@@ -15,16 +15,19 @@ import { P } from "@/lib/permissions"
 import { DashboardQuickActions } from "@/components/dashboard/quick-actions"
 import { UnifiedTimeline } from "@/components/patients/unified-timeline"
 import { UploadDialog } from "@/components/documents/upload-dialog"
-import { cycle, history, patientCtx, pregnancy, queue, refs, timeline } from "./fixtures"
+import { BillLinesEditor } from "@/components/accounting/bill-lines-editor"
+import { WalkInDialog } from "@/components/encounters/walk-in-dialog"
+import { AppointmentList } from "@/components/appointments/appointment-list"
+import { appointments, billLines, cycle, history, patientCtx, pregnancy, queue, refs, timeline } from "./fixtures"
 
-const FORMS = ["history", "pregnancy", "oi", "drawing", "consent", "header", "queue", "editor", "quick", "timeline", "upload"] as const
+const FORMS = ["history", "pregnancy", "oi", "drawing", "consent", "header", "queue", "editor", "quick", "timeline", "upload", "bill", "walkin", "appointments"] as const
 // Front-desk + doctor + billing rights, to show every action of the new screens.
 const PREVIEW_PERMISSIONS = Object.values(P)
 
 export function FormsPreview({ form }: { form: string }) {
   return (
     <AppProvider
-      session={{ userId: "dev", email: null, fullName: "Preview", roleCode: null, roleNameEn: null, roleNameAr: null, permissions: ["header", "queue", "editor", "quick", "timeline", "upload"].includes(form) ? PREVIEW_PERMISSIONS : [], doctorId: null, preferences: {} }}
+      session={{ userId: "dev", email: null, fullName: "Preview", roleCode: null, roleNameEn: null, roleNameAr: null, permissions: ["header", "queue", "editor", "quick", "timeline", "upload", "bill", "walkin", "appointments"].includes(form) ? PREVIEW_PERMISSIONS : [], doctorId: null, preferences: {} }}
       refs={refs}
     >
       <FormSaveProvider guard={false}>
@@ -77,6 +80,17 @@ export function FormsPreview({ form }: { form: string }) {
           {form === "timeline" && (
             <div className="mx-auto max-w-3xl rounded-xl border bg-card p-4">
               <UnifiedTimeline patientId="dev" events={timeline} people={{}} />
+            </div>
+          )}
+          {form === "bill" && (
+            <div className="mx-auto max-w-3xl rounded-xl border bg-card p-3">
+              <BillLinesEditor invoiceId="dev-invoice" currency="JOD" paymentType="cash" lines={billLines} editable />
+            </div>
+          )}
+          {form === "walkin" && <WalkInDialog open onOpenChange={() => undefined} />}
+          {form === "appointments" && (
+            <div className="mx-auto max-w-6xl">
+              <AppointmentList rows={appointments} />
             </div>
           )}
           {form === "upload" && <UploadDialog open onOpenChange={() => undefined} links={{ patientId: "dev", visitId: "dev-visit" }} />}

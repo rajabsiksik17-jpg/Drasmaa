@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { NativeSelect } from "@/components/common/native-select"
+import { FieldMessage, useFieldErrors } from "@/components/forms/field"
 import { PatientPicker, type PickedPatient } from "@/components/patients/patient-picker"
 import { useCan, useRefs, useSession } from "@/components/app-context"
 import { Money } from "@/components/accounting/money"
@@ -45,6 +46,7 @@ export function WalkInDialog({
   const router = useRouter()
   const { message } = useActionError()
   const [pending, start] = useSafeTransition()
+  const { errors, validate, fromAction, clear, t: tv } = useFieldErrors()
   const [patient, setPatient] = useState<PickedPatient | null>(fixedPatient ?? null)
   const [defaults, setDefaults] = useState<WalkInDefaults | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -95,9 +97,15 @@ export function WalkInDialog({
   const total = lines.reduce((s, l) => s + l.amount, 0)
   const needsDoctor = !!chosen?.requires_doctor && !v.doctorId
 
-  const submit = () =>
+  const submit = () => {
+    // Every problem at once, under its field; nothing is sent until all pass.
+    const ok = validate({
+      "wi-patient": () => !patient && tv("choosePatient"),
+      "wi-doctor": () => needsDoctor && tv("doctorRequiredForService"),
+      "wi-ins": () => v.paymentMethod === "insurance" && !v.insuranceCompanyId && tv("chooseInsurer"),
+    })
+    if (!ok || !patient) return
     start(async () => {
-      if (!patient) return
       setError(null)
       const res = await createEncounter({
         patientId: patient.id,
@@ -108,12 +116,17 @@ export function WalkInDialog({
         insuranceCompanyId: v.paymentMethod === "insurance" ? v.insuranceCompanyId || null : null,
         noCharge: v.noCharge,
       })
-      if (!res.ok) return setError(message(res.error, "createVisit"))
+      if (!res.ok) {
+        if (!fromAction(res.error, { patientId: "wi-patient", doctorId: "wi-doctor", insuranceCompanyId: "wi-ins", insurance_company_id: "wi-ins" }))
+          setError(message(res.error, "createVisit"))
+        return
+      }
       // Stay in the flow: confirm with the server time, then offer the next step.
       setCreated(res.data)
       toast.success(t("created"))
       router.refresh()
     })
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -163,7 +176,9 @@ export function WalkInDialog({
             ) : (
               <div className="flex gap-2">
                 <div className="min-w-0 flex-1">
-                  <PatientPicker value={patient} onChange={(p) => { setPatient(p); setDefaults(null) }} />
+                  <div id="wi-patient" tabIndex={-1} className="rounded-lg outline-none">
+                    <PatientPicker value={patient} onChange={(p) => { setPatient(p); setDefaults(null); clear("wi-patient") }} invalid={!!errors["wi-patient"]} />
+                  </div>
                 </div>
                 {can(P.patientsCreate) && (
                   // New patient: registration continues straight into the first visit.
@@ -176,13 +191,14 @@ export function WalkInDialog({
                 )}
               </div>
             )}
+            <FieldMessage id="wi-patient">{errors["wi-patient"]}</FieldMessage>
             {defaults?.open_encounter_id && <p className="text-xs text-amber-700 dark:text-amber-300">{t("alreadyHere")}</p>}
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="grid gap-1.5">
               <Label htmlFor="wi-doctor">{ta("doctor")}</Label>
-              <NativeSelect id="wi-doctor" value={v.doctorId} onChange={(e) => setV({ ...v, doctorId: e.target.value })} invalid={needsDoctor}>
+              <NativeSelect id="wi-doctor" value={v.doctorId} onChange={(e) => { setV({ ...v, doctorId: e.target.value }); clear("wi-doctor") }} invalid={!!errors["wi-doctor"]} aria-describedby={errors["wi-doctor"] ? "wi-doctor-error" : undefined}>
                 <option value="">{t("anyDoctor")}</option>
                 {refs.activeDoctors(v.doctorId).map((d) => (
                   <option key={d.value} value={d.value}>
@@ -190,10 +206,11 @@ export function WalkInDialog({
                   </option>
                 ))}
               </NativeSelect>
+              <FieldMessage id="wi-doctor">{errors["wi-doctor"]}</FieldMessage>
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="wi-service">{ta("service")}</Label>
-              <NativeSelect id="wi-service" value={v.serviceId} onChange={(e) => setV({ ...v, serviceId: e.target.value })}>
+              <NativeSelect id="wi-service" value={v.serviceId} onChange={(e) => { setV({ ...v, serviceId: e.target.value }); clear("wi-doctor") }}>
                 <option value="">{ta("noService")}</option>
                 {services.map((s) => (
                   <option key={s.id} value={s.id}>
@@ -212,7 +229,7 @@ export function WalkInDialog({
             {v.paymentMethod === "insurance" && (
               <div className="grid gap-1.5">
                 <Label htmlFor="wi-ins">{ta("insuranceCompany")}</Label>
-                <NativeSelect id="wi-ins" value={v.insuranceCompanyId} onChange={(e) => setV({ ...v, insuranceCompanyId: e.target.value })} invalid={!v.insuranceCompanyId}>
+                <NativeSelect id="wi-ins" value={v.insuranceCompanyId} onChange={(e) => { setV({ ...v, insuranceCompanyId: e.target.value }); clear("wi-ins") }} invalid={!!errors["wi-ins"]} aria-describedby={errors["wi-ins"] ? "wi-ins-error" : undefined}>
                   <option value="">{tc("select")}</option>
                   {refs.activeInsurance(v.insuranceCompanyId).map((o) => (
                     <option key={o.value} value={o.value}>
@@ -220,6 +237,7 @@ export function WalkInDialog({
                     </option>
                   ))}
                 </NativeSelect>
+                <FieldMessage id="wi-ins">{errors["wi-ins"]}</FieldMessage>
               </div>
             )}
           </div>
@@ -266,7 +284,7 @@ export function WalkInDialog({
             {created ? tc("close") : tc("cancel")}
           </Button>
           {!created && (
-            <Button onClick={submit} disabled={pending || !patient || needsDoctor || (v.paymentMethod === "insurance" && !v.insuranceCompanyId)}>
+            <Button onClick={submit} disabled={pending}>
               {pending ? <Loader2 className="animate-spin" /> : <DoorOpen />}
               {t("create")}
             </Button>
